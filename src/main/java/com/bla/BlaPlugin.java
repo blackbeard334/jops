@@ -9,9 +9,11 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 
 public class BlaPlugin implements Plugin {
+    public static final String NAME = "BlaPlugin";
+
     @Override
     public String getName() {
-        return "BlaPlugin";
+        return NAME;
     }
 
     @Override
@@ -24,7 +26,13 @@ public class BlaPlugin implements Plugin {
             public void started(TaskEvent e) {
                 if (e.getKind() != TaskEvent.Kind.PARSE) return;
 
+//                CompilationUnitTree bla = new JCTree.JCCompilationUnit();
                 Log.instance(context).printRawLines(e.getSourceFile().getName());
+            }
+
+            @Override
+            public void finished(TaskEvent e) {
+
             }
         });
     }
