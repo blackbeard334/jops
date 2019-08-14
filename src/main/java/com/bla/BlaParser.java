@@ -1,5 +1,6 @@
 package com.bla;
 
+import com.bla.annotation.OperatorOverloading;
 import com.sun.tools.javac.parser.Parser;
 import com.sun.tools.javac.tree.JCTree;
 
@@ -16,8 +17,9 @@ import com.sun.tools.javac.tree.JCTree;
  * *find a way to rename compilation errors back to their operator+ variants instead of oPlus
  */
 public class BlaParser implements Parser {
-    private static final String OVERLOADING_IMPORT     = "abc";
-    private static final String OVERLOADING_ANNOTATION = "def";
+    private static final String  OVERLOADING_IMPORT     = OperatorOverloading.class.getName();
+    private static final String  OVERLOADING_ANNOTATION = "@OperatorOverloading";
+    private static final boolean DEBUG                  = true;
 
     private boolean  inCommentBlock = false;
     private int      currentLine    = 0;
@@ -25,86 +27,41 @@ public class BlaParser implements Parser {
     private String[] lines;
 
     void parse(final String sourceFile) {
-        if (hasOverloadingShallow(sourceFile)) {
-            lines = sourceFile.split("\n");
-            if (hasOverloadingDeep()) {
-                /**
-                 * after an annotation you can have:
-                 * * other annotations
-                 * * comments
-                 * * start of class
-                 */
-                for (inCommentBlock = false; currentLine < lines.length; currentLine++) {
-                    final String line = lines[currentLine];
-                    if (line.startsWith("@")) //TODO annotations can have brackets
-                        continue;
-                    if (line.startsWith("//") || line.startsWith("/*")) {//TODO comments can be a blockity block
-                        inCommentBlock = true;
-                        continue;
-                    }
-                    if (line.startsWith("*/")) {
-                        inCommentBlock = false;
-                        continue;
-                    }
-                    if (inCommentBlock) continue;
-
-
-                    //TODO the same line can have lots of stuff like: @bla @bla2 /** asdasd */ public class
-                    //this line HAS to have class definition
-                }
+        String noCommentOrStringSource = stripStringLiterals(stripComments(sourceFile));
+        if (hasOverloadingShallow(noCommentOrStringSource)) {
+//            lines = sourceFile.split("\n");
+            for (OPS operator : OPS.values()) {
+                noCommentOrStringSource = operator.otor(noCommentOrStringSource);
             }
+            /**
+             * we can just check the rest of the lines in the same way for:
+             * * import
+             * * annotation
+             * * _class_ <--underscores = spaces
+             * * * classes can be nested, so we need to make sure the annotation is on the actual class
+             * * operator
+             * * * replace operator on line
+             * then merge lines to whole, and replace operators from merged lines to original:
+             * * position 123 in lines = oPlus()
+             * * position 123 in original should have operator+(), which we replace with oPlus()
+             */
+//            JCTree.JCCompilationUnit bla =
         }
     }
 
     private boolean hasOverloadingShallow(final String sourceFile) {
-        return sourceFile.contains(OVERLOADING_IMPORT) && sourceFile.contains(OVERLOADING_ANNOTATION);
+        // remove break lines from source
+        String sourceFileNoBreaks = sourceFile.replaceAll("\\s", "");
+        return sourceFileNoBreaks.contains(OVERLOADING_IMPORT) && sourceFileNoBreaks.contains(OVERLOADING_ANNOTATION);
     }
 
-    private boolean hasOverloadingDeep() {
-        return hasImport() && hasAnnotation();//in particular that order
-    }
-
-    private boolean hasImport() { //TODO check import is before class
-        for (; currentLine < lines.length; currentLine++) {
-            charsThusFar += lines[currentLine].length();
-            lines[currentLine] = stripComments(lines[currentLine]);
-            lines[currentLine] = stripStringLiterals(lines[currentLine]);
-            if (lines[currentLine].contains(OVERLOADING_IMPORT)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasAnnotation() {  //TODO check the annotation is on class
-        for (; currentLine < lines.length; currentLine++) {
-            charsThusFar += lines[currentLine].length();
-            lines[currentLine] = stripComments(lines[currentLine]);
-            lines[currentLine] = stripStringLiterals(lines[currentLine]);
-            if (lines[currentLine].contains(OVERLOADING_ANNOTATION)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String stripComments(final String line) {
-        String bla = line;
+    private String stripComments(final String source) {
+        String bla = source;
         int index, leftComment, rightComment;
-
-        //dangling blocks
-        if (inCommentBlock) {
-            if ((rightComment = bla.indexOf("*/")) != -1) {
-                final int len = bla.length() - rightComment;
-                bla = strcat(bla, fill(len), 0, len);
-                inCommentBlock = false;
-            } else
-                return fill(line.length());
-        }
 
         //skip single line comments
         if ((index = bla.indexOf("//")) != -1) {
-            final int len = bla.length() - index;
+            final int len = bla.indexOf('\n', index) - index;
             bla = strcat(bla, fill(len), index, len);
         }
 
@@ -112,7 +69,7 @@ public class BlaParser implements Parser {
         while ((leftComment = bla.indexOf("/*")) != -1) {
             final int len;
             if ((rightComment = bla.indexOf("*/", leftComment)) != -1) {
-                len = rightComment - leftComment;
+                len = rightComment - leftComment + 2;
                 bla = strcat(bla, fill(len), leftComment, len);
             } else {
                 len = bla.length() - leftComment;
@@ -122,12 +79,12 @@ public class BlaParser implements Parser {
             }
         }
 
-        assert (bla.length() == line.length());
+        assert (bla.length() == source.length());
         return bla;
     }
 
-    private String stripStringLiterals(final String line) {
-        String bla = line.replace("\"", "\t");//remove escaped quotes
+    private String stripStringLiterals(final String source) {
+        String bla = source.replace("\"", "\t");//remove escaped quotes
         int leftQuotes, rightQuotes;
 
         while ((leftQuotes = bla.indexOf('"')) != -1) {
@@ -142,7 +99,9 @@ public class BlaParser implements Parser {
     }
 
     private String fill(final int len) {
-        return String.format("%1$" + len + "s", "");
+        String paddedString = String.format("%1$" + len + "s", "");
+        if (DEBUG) return paddedString.replace(" ", "X");
+        return paddedString;
     }
 
     private String strcat(final String src, final String str, final int position, final int len) {

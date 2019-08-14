@@ -12,16 +12,16 @@
         <dependency>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
-            <version>3.1</version>
+            <version>3.8.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.sun</groupId>
-            <artifactId>tools</artifactId>
-            <version>1.8.0</version>
-            <scope>system</scope>
-            <systemPath>${java.home}/../jdk1.8.0_51/lib/tools.jar</systemPath>
-        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>com.sun</groupId>-->
+        <!--            <artifactId>tools</artifactId>-->
+        <!--            <version>1.8.0</version>-->
+        <!--            <scope>system</scope>-->
+        <!--            <systemPath>${java.home}/../jdk1.8.0_51/lib/tools.jar</systemPath>-->
+        <!--        </dependency>-->
     </dependencies>
 
 
@@ -30,9 +30,20 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>11</source>
+                    <target>11</target>
+                    <compilerArgs>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                        <arg>--add-exports</arg>
+                        <arg>jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>
