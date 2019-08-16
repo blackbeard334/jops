@@ -57,21 +57,21 @@ public class BlaParser implements Parser {
 
     private String stripComments(final String source) {
         String bla = source;
-        int index, leftComment, rightComment;
+        int index, leftComment, rightComment = -1;
 
         //skip single line comments
         if ((index = bla.indexOf("//")) != -1) {
-            final int len = bla.indexOf('\n', index) - index;
-            bla = strcat(bla, fill(len), index, len);
+            final int len = bla.indexOf('\n', index) - index - 2;
+            bla = strcat(bla, fill(len), index + 2, len);
         }
 
         //skip blocks
-        while ((leftComment = bla.indexOf("/*")) != -1) {
+        while ((leftComment = bla.indexOf("/*", rightComment)) != -1) {
             final int len;
-            if ((rightComment = bla.indexOf("*/", leftComment)) != -1) {
-                len = rightComment - leftComment + 2;
-                bla = strcat(bla, fill(len), leftComment, len);
-            } else {
+            if ((rightComment = bla.indexOf("*/", leftComment + 2)) != -1) {
+                len = rightComment - leftComment - 2;
+                bla = strcat(bla, fill(len), leftComment + 2, len);
+            } else {//TODO broken comment with no closing tag
                 len = bla.length() - leftComment;
                 bla = strcat(bla, fill(len), leftComment, len);
                 inCommentBlock = true;
@@ -84,14 +84,14 @@ public class BlaParser implements Parser {
     }
 
     private String stripStringLiterals(final String source) {
-        String bla = source.replace("\"", "\t");//remove escaped quotes
-        int leftQuotes, rightQuotes;
+        String bla = source.replace("\\\"", "\t");//remove escaped quotes
+        int leftQuotes, rightQuotes = -1;
 
-        while ((leftQuotes = bla.indexOf('"')) != -1) {
-            rightQuotes = bla.indexOf('"', leftQuotes);
+        while ((leftQuotes = bla.indexOf('"', rightQuotes + 1)) != -1) {
+            rightQuotes = bla.indexOf('"', leftQuotes + 1);
             if (rightQuotes != -1) {
-                final int len = rightQuotes - leftQuotes;
-                bla = strcat(bla, fill(len), leftQuotes, len);
+                final int len = rightQuotes - leftQuotes - 1;
+                bla = strcat(bla, fill(len), leftQuotes + 1, len);
             }
         }
 

@@ -16,7 +16,7 @@ public enum OPS {
 
     /** Operator TO Replacement */
     public String otor(final String str) {
-        return str.replace(operator, replacement);
+        return str.replace(operator, replacement); //TODO fix the corner case where there's a fucking variable named (*)operator+(
     }
 
     /** Replacement TO Operator */
