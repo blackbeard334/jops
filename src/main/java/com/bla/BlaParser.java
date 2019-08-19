@@ -21,17 +21,29 @@ public class BlaParser implements Parser {
     private static final String  OVERLOADING_ANNOTATION = "@OperatorOverloading";
     private static final boolean DEBUG                  = true;
 
-    private boolean  inCommentBlock = false;
-    private int      currentLine    = 0;
-    private long     charsThusFar   = 0;
-    private String[] lines;
+    private boolean inCommentBlock = false;
+    private int     currentLine    = 0;
+    private long    charsThusFar   = 0;
 
-    void parse(final String sourceFile) {
-        String noCommentOrStringSource = stripStringLiterals(stripComments(sourceFile));
-        if (hasOverloadingShallow(noCommentOrStringSource)) {
+    private final String sourceFile;
+    private final String noComments;
+    private final String noCommentsOrStrings;
+    private final String noCommentsOrStringsOrWhiteSpace;
+
+    public BlaParser(final String sourceFile) {
+        this.sourceFile = sourceFile;
+        noComments = stripComments(sourceFile);
+        noCommentsOrStrings = stripStringLiterals(noComments);
+        noCommentsOrStringsOrWhiteSpace = noCommentsOrStrings.replaceAll("\\s", "");
+    }
+
+    /** seek & destroy */
+    public String parseAndReplace() {
+        String temp = noCommentsOrStrings;
+        if (hasOverloadingShallow()) {
 //            lines = sourceFile.split("\n");
             for (OPS operator : OPS.values()) {
-                noCommentOrStringSource = operator.otor(noCommentOrStringSource);
+                temp = operator.otor(temp);
             }
             /**
              * we can just check the rest of the lines in the same way for:
@@ -47,12 +59,12 @@ public class BlaParser implements Parser {
              */
 //            JCTree.JCCompilationUnit bla =
         }
+        return temp;
     }
 
-    private boolean hasOverloadingShallow(final String sourceFile) {
+    public boolean hasOverloadingShallow() {
         // remove break lines from source
-        String sourceFileNoBreaks = sourceFile.replaceAll("\\s", "");
-        return sourceFileNoBreaks.contains(OVERLOADING_IMPORT) && sourceFileNoBreaks.contains(OVERLOADING_ANNOTATION);
+        return noCommentsOrStringsOrWhiteSpace.contains(OVERLOADING_IMPORT) && noCommentsOrStringsOrWhiteSpace.contains(OVERLOADING_ANNOTATION);
     }
 
     private String stripComments(final String source) {
