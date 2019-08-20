@@ -16,6 +16,9 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import static com.bla.BlaTest.BlaSimpleJavaFileObject;
 
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
@@ -39,7 +42,7 @@ public class BlaPlugin implements Plugin {
 
 //                CompilationUnitTree bla = new JCTree.JCCompilationUnit();
                 JavaFileObject sourceFile = e.getSourceFile();
-                if (sourceFile instanceof BlaTest.BlaSimpleJavaFileObject) {
+                if (sourceFile instanceof BlaSimpleJavaFileObject) {
                     int x = 0;
                 }
                 /**
@@ -51,12 +54,10 @@ public class BlaPlugin implements Plugin {
                 try {
                     BlaParser blaParser = new BlaParser(sourceFile.getCharContent(false).toString());
                     if (blaParser.hasOverloadingShallow()) {
-                        final String s = blaParser.parseAndReplace();
-                        Path tempFile = Files.createTempFile("bla", ".java");
-                        Files.writeString(tempFile, s);
+                        final String confusion = blaParser.parseAndReplace();
+                        final Path tempFilePath = createTempFile(sourceFile, confusion);
 
-                        final BlaTest.BlaSimpleJavaFileObject blaSimpleJavaFileObject = new BlaTest.BlaSimpleJavaFileObject(tempFile.toUri(), JavaFileObject.Kind.SOURCE, s);
-                        updateClientFileObject(sourceFile, blaSimpleJavaFileObject);
+                        updateClientFileObject(sourceFile, confusion, tempFilePath);
                     }
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -71,19 +72,65 @@ public class BlaPlugin implements Plugin {
         });
     }
 
-    private FileObject updateClientFileObject(JavaFileObject sourceFile, SimpleJavaFileObject bla) {
-        Field clientFileObject = null;
+    private boolean updateClientFileObject(final JavaFileObject sourceFile, final String str, final Path path) {
+        Field clientFileObjectField = null;
+        Field uriField = null, fileContentField = null;
+        Field stringValueField = null, stringCoderField = null, stringHashField = null;
         try {
-            clientFileObject = sourceFile.getClass().getSuperclass().getDeclaredField("clientFileObject");
-            clientFileObject.setAccessible(true);
-            clientFileObject.set(sourceFile, bla);
-            return (FileObject) clientFileObject.get(sourceFile);
+            clientFileObjectField = sourceFile.getClass().getSuperclass().getDeclaredField("clientFileObject");
+            clientFileObjectField.setAccessible(true);
+            FileObject clientFileObject = (FileObject) clientFileObjectField.get(sourceFile);
+            {
+                uriField = SimpleJavaFileObject.class.getDeclaredField("uri");
+                uriField.setAccessible(true);
+                uriField.set(clientFileObject, path.toUri());
+
+                fileContentField = BlaSimpleJavaFileObject.class.getDeclaredField("fileContent");
+                fileContentField.setAccessible(true);
+                String fileContent = (String) fileContentField.get(clientFileObject);
+                {
+                    stringValueField = String.class.getDeclaredField("value");
+                    stringValueField.setAccessible(true);
+                    stringValueField.set(fileContent, stringValueField.get(str));
+
+                    stringCoderField = String.class.getDeclaredField("coder");
+                    stringCoderField.setAccessible(true);
+                    stringCoderField.set(fileContent, stringCoderField.get(str));
+
+                    stringHashField = String.class.getDeclaredField("hash");
+                    stringHashField.setAccessible(true);
+                    stringHashField.set(fileContent, stringHashField.get(str));
+                }
+            }
+            return true;
         } catch (NoSuchFieldException | IllegalAccessException ex) {
             ex.printStackTrace();
-            return null;
+            return false;
         } finally {
-            if (clientFileObject != null)
-                clientFileObject.setAccessible(false);
+            if (clientFileObjectField != null)
+                clientFileObjectField.setAccessible(false);
+            {
+                if (uriField != null)
+                    uriField.setAccessible(false);
+                if (fileContentField != null)
+                    fileContentField.setAccessible(false);
+                {
+                    if (stringValueField != null)
+                        stringValueField.setAccessible(false);
+                    if (stringCoderField != null)
+                        stringCoderField.setAccessible(false);
+                    if (stringHashField != null)
+                        stringHashField.setAccessible(false);
+                }
+            }
         }
+    }
+
+    private Path createTempFile(final JavaFileObject sourceFile, final CharSequence csq) throws IOException {
+        final Path fileName = Paths.get(sourceFile.toUri()).getFileName();
+        final Path tempDir = Files.createTempDirectory("");
+        final Path tempFile = Files.createFile(tempDir.resolve(fileName));
+
+        return Files.writeString(tempFile, csq);
     }
 }
