@@ -18,7 +18,7 @@ import com.sun.tools.javac.tree.JCTree;
  */
 public class BlaParser implements Parser {
     private static final String  OVERLOADING_IMPORT     = OperatorOverloading.class.getName();
-    private static final String  OVERLOADING_ANNOTATION = "@OperatorOverloading";
+    private static final String  OVERLOADING_ANNOTATION = OperatorOverloading.ANNOTATION;
     private static final boolean DEBUG                  = true;
 
     private boolean inCommentBlock = false;
@@ -43,7 +43,7 @@ public class BlaParser implements Parser {
         if (hasOverloadingShallow()) {
 //            lines = sourceFile.split("\n");
             for (OPS operator : OPS.values()) {
-                temp = operator.otor(temp);
+                temp = operator.otor(temp);//TODO check operator locations after the comments/strings have been stripped, and then replace them in the original
             }
             /**
              * we can just check the rest of the lines in the same way for:

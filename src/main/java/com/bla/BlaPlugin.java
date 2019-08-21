@@ -89,6 +89,10 @@ public class BlaPlugin implements Plugin {
                 fileContentField.setAccessible(true);
                 String fileContent = (String) fileContentField.get(clientFileObject);
                 {
+                    /*
+                     The source is alraedy read at com.sun.tools.javac.main.JavaCompiler.parse(javax.tools.JavaFileObject)
+                     So we need to change it here
+                     */
                     stringValueField = String.class.getDeclaredField("value");
                     stringValueField.setAccessible(true);
                     stringValueField.set(fileContent, stringValueField.get(str));
