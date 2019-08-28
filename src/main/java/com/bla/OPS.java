@@ -1,24 +1,28 @@
 package com.bla;
 
+import com.sun.tools.javac.tree.JCTree;
+
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public enum OPS {
-    PLUS("operator+(", "oPlus("),
-    MINUS("operator-(", "oMinus("),
-    MULTIPLY("operator*(", "oMultiply("),
-    DIVIDE("operator/(", "oDivide(");
+    PLUS("operator+(", "oPlus(", JCTree.Tag.PLUS),
+    MINUS("operator-(", "oMinus(", JCTree.Tag.MINUS),
+    MULTIPLY("operator*(", "oMultiply(", JCTree.Tag.MUL),
+    DIVIDE("operator/(", "oDivide(", JCTree.Tag.DIV);
 
-    private final String operator;
-    private final String replacement;
+    private final String     operator;
+    private final String     replacement;
+    private final JCTree.Tag tag;
 
     private static final Set<String> OPERATORS    = Arrays.stream(OPS.values()).map(i -> i.operator.substring(0, i.operator.length() - 1)).collect(Collectors.toUnmodifiableSet());//TODO make this purty
     private static final Set<String> REPLACEMENTS = Arrays.stream(OPS.values()).map(i -> i.replacement.substring(0, i.replacement.length() - 1)).collect(Collectors.toUnmodifiableSet());//shane falco!
 
-    OPS(final String operator, final String replacement) {
+    OPS(final String operator, final String replacement, JCTree.Tag tag) {
         this.operator = operator;
         this.replacement = replacement;
+        this.tag = tag;
     }
 
     /** Operator TO Replacement */
