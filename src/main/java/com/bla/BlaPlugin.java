@@ -1,6 +1,7 @@
 package com.bla;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
@@ -8,34 +9,48 @@ import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.MultiTaskListener;
-import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCAssignOp;
 import com.sun.tools.javac.tree.JCTree.JCBinary;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
+import com.sun.tools.javac.util.Name;
 
 import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.bla.BlaTest.BlaSimpleJavaFileObject;
-import static com.sun.tools.javac.tree.JCTree.*;
+import static com.sun.tools.javac.tree.JCTree.JCAssign;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
 import static com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import static com.sun.tools.javac.tree.JCTree.JCExpression;
+import static com.sun.tools.javac.tree.JCTree.JCExpressionStatement;
+import static com.sun.tools.javac.tree.JCTree.JCForLoop;
+import static com.sun.tools.javac.tree.JCTree.JCIf;
 import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import static com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
+import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
+
+    private static Map<URI, URI> changedFiles      = new HashMap<>();
+    private static Set<String>   overloadedClasses = new HashSet<>();
 
     @Override
     public String getName() {
@@ -70,7 +85,7 @@ public class BlaPlugin implements Plugin {
                     if (blaParser.hasOverloadingShallow()) {
                         final String confusion = blaParser.parseAndReplace();
                         final Path tempFilePath = createTempFile(sourceFile, confusion);
-
+                        changedFiles.put(tempFilePath.toUri(), sourceFile.toUri());
                         updateClientFileObject(sourceFile, confusion, tempFilePath);
                     }
                 } catch (IOException ex) {
@@ -81,6 +96,22 @@ public class BlaPlugin implements Plugin {
 
             @Override
             public void finished(TaskEvent e) {
+                if (e.getKind() != TaskEvent.Kind.PARSE) return;
+
+                final BlaVerifier blaVerifier = new BlaVerifier(e.getCompilationUnit());
+                final URI uri = e.getSourceFile().toUri();
+                if (changedFiles.containsKey(uri)) {
+                    if (!blaVerifier.isValid()) {
+//                        changedFiles.remove(uri);//TODO
+                    } else {
+                        overloadedClasses.addAll(blaVerifier.getOverloadedClasses());
+                    }
+                }
+
+                if (!hasOverloadedClassesImported(e.getCompilationUnit())) {
+                    return;
+                }
+
                 /**
                  * 1-we need a list of valid overloaded classes
                  * 2-we then check every class for the imports
@@ -95,34 +126,32 @@ public class BlaPlugin implements Plugin {
                  */
                 //((com.sun.tools.javac.util.List)((JCClassDecl)((com.sun.tools.javac.util.List)((JCCompilationUnit)e.unit).defs).get(2)).defs).get(5)
                 final CompilationUnitTree compilationUnit = e.getCompilationUnit();
+                compilationUnit.getImports().forEach(i -> nameTypeMap.put(((JCTree.JCFieldAccess) i).name, null)); //TODO init list with imports, and figure out how to reach da root elementz
                 final List<? extends Tree> typeDecls = compilationUnit.getTypeDecls();
-                final com.sun.tools.javac.util.List<JCTree> members = ((JCClassDecl) typeDecls.get(0)).getMembers();
-                final JCBlock body = ((JCMethodDecl) members.get(5)).getBody();
-                final com.sun.tools.javac.util.List<JCStatement> statements = body.getStatements();
-                final JCExpression expression = ((JCReturn) statements.get(0)).getExpression();
-                if (expression instanceof JCBinary) {
-                    final JCBinary expression1 = (JCBinary) expression;
-                    final Symbol.OperatorSymbol operator = expression1.getOperator();
-//                    expression1.getLeftOperand()
-                }
-                //TODO scan imports for overloaded classes
-                int a = 0;//TODO change the name/path back after compilation?
+                typeDecls.forEach(BlaPlugin::bla);
+
+//                //TODO scan imports for overloaded classes
+//                int a = 0;//TODO change the name/path back after compilation?
             }
         });
     }
 
-    private JCTree bla(JCTree tree) {
+    private static Map<Name, JCTree> nameTypeMap = new HashMap<com.sun.tools.javac.util.Name, JCTree>();
+
+    private static Tree bla(Tree tree) {
         switch (tree.getClass().getSimpleName()) {
             case "JCClassDecl":
                 JCClassDecl classDecl = (JCClassDecl) tree;
-                classDecl.defs.replaceAll(this::bla);
+                classDecl.defs.forEach(BlaPlugin::bla);
                 break;
             case "JCVariableDecl":
                 JCVariableDecl variableDecl = (JCVariableDecl) tree;
+                nameTypeMap.put(variableDecl.getName(), variableDecl.getType());
                 variableDecl.init = (JCExpression) bla(variableDecl.init);
                 break;
             case "JCMethodDecl":
                 JCMethodDecl methodDecl = (JCMethodDecl) tree;
+                methodDecl.getParameters().forEach(p -> nameTypeMap.put(p.getName(), p.getType()));
                 methodDecl.body = (JCBlock) bla(methodDecl.body);
                 break;
             case "JCBinary": //TODO check opcodes and types
@@ -132,14 +161,15 @@ public class BlaPlugin implements Plugin {
                 break;
             case "JCBlock":
                 JCBlock block = (JCBlock) tree;
-                block.stats.replaceAll(tree1 -> (JCStatement) bla(tree1));
+                block.stats.forEach(BlaPlugin::bla);
                 break;
             case "JCMethodInvocation": //method params can be (a + b)
                 JCMethodInvocation methodInvocation = (JCMethodInvocation) tree;
-                methodInvocation.args.replaceAll(m -> (JCExpression) bla(m));
+                methodInvocation.args.forEach(BlaPlugin::bla);
                 break;
             case "JCIdent":
             case "JCLiteral":
+            case "JCFieldAccess":
                 return tree;
             case "JCParens":
                 JCParens parens = (JCParens) tree;
@@ -157,6 +187,11 @@ public class BlaPlugin implements Plugin {
                 JCAssign assign = (JCAssign) tree;
                 assign.lhs = (JCExpression) bla(assign.lhs);
                 assign.rhs = (JCExpression) bla(assign.rhs);
+                break;
+            case "JCAssignOp":
+                JCAssignOp assignOp = (JCAssignOp) tree;
+                assignOp.lhs = (JCExpression) bla(assignOp.lhs);
+                assignOp.rhs = (JCExpression) bla(assignOp.rhs);
                 break;
             case "JCIf":
                 JCIf jcIf = (JCIf) tree;
@@ -257,5 +292,12 @@ public class BlaPlugin implements Plugin {
         final Path tempFile = Files.createFile(tempDir.resolve(fileName));
 
         return Files.writeString(tempFile, csq);
+    }
+
+    private boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
+        return compilationUnit.getImports().stream()
+                .map(ImportTree::getQualifiedIdentifier)
+                .map(Object::toString)
+                .anyMatch(overloadedClasses::contains);
     }
 }

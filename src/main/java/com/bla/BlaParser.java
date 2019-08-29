@@ -19,7 +19,7 @@ import com.sun.tools.javac.tree.JCTree;
 public class BlaParser implements Parser {
     private static final String  OVERLOADING_IMPORT     = OperatorOverloading.class.getName();
     private static final String  OVERLOADING_ANNOTATION = OperatorOverloading.ANNOTATION;
-    private static final boolean DEBUG                  = true;
+    private static final boolean DEBUG                  = false;
 
     private boolean inCommentBlock = false;
     private int     currentLine    = 0;
@@ -95,7 +95,7 @@ public class BlaParser implements Parser {
         return bla;
     }
 
-    private String stripStringLiterals(final String source) {
+    private String stripStringLiterals(final String source) {//TODO empty strings throw a null pointer
         String bla = source.replace("\\\"", "\t");//remove escaped quotes
         int leftQuotes, rightQuotes = -1;
 
