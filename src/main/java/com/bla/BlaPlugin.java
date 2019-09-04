@@ -96,7 +96,7 @@ public class BlaPlugin implements Plugin {
 
             @Override
             public void finished(TaskEvent e) {
-                if (e.getKind() != TaskEvent.Kind.PARSE) return;
+                if (e.getKind() != TaskEvent.Kind.ENTER/*the dragon*/) return;
 
                 final BlaVerifier blaVerifier = new BlaVerifier(e.getCompilationUnit());
                 final URI uri = e.getSourceFile().toUri();
@@ -124,9 +124,8 @@ public class BlaPlugin implements Plugin {
                  *   iii-TODO would replacing pre-compilation be better performance-wise!?
                  * 3-a corner case that import scanning wouldn't be able to find is overloaded operations within the defining class, so the imports should just be implied then I guess
                  */
-                //((com.sun.tools.javac.util.List)((JCClassDecl)((com.sun.tools.javac.util.List)((JCCompilationUnit)e.unit).defs).get(2)).defs).get(5)
                 final CompilationUnitTree compilationUnit = e.getCompilationUnit();
-                compilationUnit.getImports().forEach(i -> nameTypeMap.put(((JCTree.JCFieldAccess) i).name, null)); //TODO init list with imports, and figure out how to reach da root elementz
+                compilationUnit.getImports().forEach(i -> nameTypeMap.put(((JCTree.JCFieldAccess) i.getQualifiedIdentifier()).name, null)); //TODO init list with imports, and figure out how to reach da root elementz
                 final List<? extends Tree> typeDecls = compilationUnit.getTypeDecls();
                 typeDecls.forEach(BlaPlugin::bla);
 
