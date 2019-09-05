@@ -8,8 +8,10 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import com.sun.tools.javac.util.Name;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class BlaVerifier {
     private final CompilationUnitTree compilationUnit;
@@ -30,8 +32,11 @@ public class BlaVerifier {
         return false;
     }
 
-    public List<String> getOverloadedClasses(){
-        return List.of("x.y.z.Bla");//TODO populate list of nested qualifiying classes
+    public List<Name> getOverloadedClasses() {
+        return this.compilationUnit.getTypeDecls().stream()
+                .map(JCClassDecl.class::cast)
+                .map(JCClassDecl::getSimpleName)
+                .collect(Collectors.toList());//TODO populate list of nested qualifiying ONLY classes
     }
 
     private boolean isValid(JCClassDecl type) {

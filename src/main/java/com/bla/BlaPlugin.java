@@ -9,6 +9,7 @@ import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.MultiTaskListener;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAssignOp;
 import com.sun.tools.javac.tree.JCTree.JCBinary;
@@ -50,7 +51,7 @@ public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
     private static Map<URI, URI> changedFiles      = new HashMap<>();
-    private static Set<String>   overloadedClasses = new HashSet<>();
+    private static Set<Name>     overloadedClasses = new HashSet<>();
 
     @Override
     public String getName() {
@@ -125,7 +126,11 @@ public class BlaPlugin implements Plugin {
                  * 3-a corner case that import scanning wouldn't be able to find is overloaded operations within the defining class, so the imports should just be implied then I guess
                  */
                 final CompilationUnitTree compilationUnit = e.getCompilationUnit();
-                compilationUnit.getImports().forEach(i -> nameTypeMap.put(((JCTree.JCFieldAccess) i.getQualifiedIdentifier()).name, null)); //TODO init list with imports, and figure out how to reach da root elementz
+                compilationUnit.getImports().stream()
+                        .map(ImportTree::getQualifiedIdentifier)
+                        .map(JCTree.JCFieldAccess.class::cast)
+                        .filter(i -> overloadedClasses.contains(i.name))
+                        .forEach(i -> nameTypeMap.put(i.name, i.type)); //TODO init list with imports, and figure out how to reach da root elementz
                 final List<? extends Tree> typeDecls = compilationUnit.getTypeDecls();
                 typeDecls.forEach(BlaPlugin::bla);
 
@@ -135,7 +140,7 @@ public class BlaPlugin implements Plugin {
         });
     }
 
-    private static Map<Name, JCTree> nameTypeMap = new HashMap<com.sun.tools.javac.util.Name, JCTree>();
+    private static Map<Name, Type> nameTypeMap = new HashMap<>();
 
     private static Tree bla(Tree tree) {
         switch (tree.getClass().getSimpleName()) {
@@ -145,18 +150,38 @@ public class BlaPlugin implements Plugin {
                 break;
             case "JCVariableDecl":
                 JCVariableDecl variableDecl = (JCVariableDecl) tree;
-                nameTypeMap.put(variableDecl.getName(), variableDecl.getType());
+                if (variableDecl.getType() instanceof JCTree.JCIdent) {  //TODO optimize later
+                    final JCTree.JCIdent type = (JCTree.JCIdent) variableDecl.getType();
+                    if (overloadedClasses.contains(type.name)) {
+                        nameTypeMap.put(variableDecl.getName(), type.type);
+                    }
+                }
                 variableDecl.init = (JCExpression) bla(variableDecl.init);
                 break;
             case "JCMethodDecl":
                 JCMethodDecl methodDecl = (JCMethodDecl) tree;
-                methodDecl.getParameters().forEach(p -> nameTypeMap.put(p.getName(), p.getType()));
+                methodDecl.getParameters().stream()
+                        .filter(p -> p.getType() instanceof JCTree.JCIdent)
+                        .forEach(p -> {
+                            final JCTree.JCIdent type = (JCTree.JCIdent) p.getType();
+                            if (overloadedClasses.contains(type.name)) {
+                                nameTypeMap.put(p.getName(), type.type);
+                            }
+                        });
                 methodDecl.body = (JCBlock) bla(methodDecl.body);
                 break;
             case "JCBinary": //TODO check opcodes and types
                 JCBinary binary = (JCBinary) tree;
                 binary.lhs = (JCExpression) bla(binary.lhs);
                 binary.rhs = (JCExpression) bla(binary.rhs);
+                //TODO wait for the recursive calls to return to know all the return values
+                if (binary.lhs instanceof JCTree.JCIdent) {
+                    JCTree.JCIdent lhs = (JCTree.JCIdent) binary.lhs;
+                    if (nameTypeMap.containsKey(lhs.getName())) {
+                        final Type type = nameTypeMap.get(lhs.getName());
+                        // if type has binary.getOperator() && binary.rhs is the correct param type
+                    }
+                }
                 break;
             case "JCBlock":
                 JCBlock block = (JCBlock) tree;
@@ -209,22 +234,6 @@ public class BlaPlugin implements Plugin {
         }
 
         return tree;
-    }
-
-    @Deprecated
-    private JCBinary bla(JCTree lhs, JCTree rhs) {
-        //TODO check JCParens
-        //TODO check stuff like if statements, ternary, variable definition/assignment...etc
-        if (lhs instanceof JCBinary) {
-            final JCBinary lhs1 = (JCBinary) lhs;
-            lhs = bla(lhs1.lhs, lhs1.rhs);//lhs & rhs are public \(^o^)/
-        }
-        if (rhs instanceof JCBinary) {
-            final JCBinary rhs1 = (JCBinary) rhs;
-            rhs = bla(rhs1.lhs, rhs1.rhs);
-        }
-
-        return null;
     }
 
     private boolean updateClientFileObject(final JavaFileObject sourceFile, final String str, final Path path) {
@@ -296,7 +305,8 @@ public class BlaPlugin implements Plugin {
     private boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
         return compilationUnit.getImports().stream()
                 .map(ImportTree::getQualifiedIdentifier)
-                .map(Object::toString)
+                .map(JCTree.JCFieldAccess.class::cast)
+                .map(JCTree.JCFieldAccess::getIdentifier)
                 .anyMatch(overloadedClasses::contains);
     }
 }

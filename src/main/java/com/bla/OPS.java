@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public enum OPS {
-    PLUS("operator+(", "oPlus(", JCTree.Tag.PLUS),
+    PLUS("operator+(", "oPlus(", JCTree.Tag.PLUS),//TODO maybe these operator names should be randomized?
     MINUS("operator-(", "oMinus(", JCTree.Tag.MINUS),
     MULTIPLY("operator*(", "oMultiply(", JCTree.Tag.MUL),
     DIVIDE("operator/(", "oDivide(", JCTree.Tag.DIV);
