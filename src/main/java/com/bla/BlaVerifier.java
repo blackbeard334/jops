@@ -32,11 +32,26 @@ public class BlaVerifier {
         return false;
     }
 
-    public List<Name> getOverloadedClasses() {
-        return this.compilationUnit.getTypeDecls().stream()
-                .map(JCClassDecl.class::cast)
-                .map(JCClassDecl::getSimpleName)
-                .collect(Collectors.toList());//TODO populate list of nested qualifiying ONLY classes
+    public List<BlaOverloadedClass> getOverloadedClasses() {
+        final JCClassDecl firstClass = (JCClassDecl) this.compilationUnit.getTypeDecls().get(0);
+
+        final List<JCMethodDecl> allMethods = firstClass.getMembers().stream()
+                .filter(JCMethodDecl.class::isInstance)
+                .map(JCMethodDecl.class::cast)
+                .collect(Collectors.toUnmodifiableList());
+        final BlaOverloadedClass overloadedClass = new BlaOverloadedClass(firstClass.getSimpleName());
+        overloadedClass.plus = getMethod("oPlus", allMethods);
+        overloadedClass.minus = getMethod("oMinus", allMethods);
+        overloadedClass.mul = getMethod("oMultiply", allMethods);
+        overloadedClass.div = getMethod("oDivide", allMethods);
+        return List.of(overloadedClass);//TODO populate list of nested qualifiying ONLY classes
+    }
+
+    private JCMethodDecl getMethod(final String methodName, final List<JCMethodDecl> allMethods) {
+        return allMethods.stream()
+                .filter(m -> methodName.equals(m.name.toString()))
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean isValid(JCClassDecl type) {
@@ -77,5 +92,33 @@ public class BlaVerifier {
     private boolean isValidOverloadedMethod() {
 
         return false;
+    }
+
+    class BlaOverloadedClass {
+        final Name name;
+        JCMethodDecl plus, minus, mul, div;//TODO generalize this
+
+        public BlaOverloadedClass(final Name name) {
+            this.name = name;
+        }
+
+        public Name getName() {
+            return name;
+        }
+
+        JCMethodDecl getMethod(final JCTree.Tag opcode) {
+            switch (opcode) {
+                case PLUS:
+                    return plus;
+                case MINUS:
+                    return minus;
+                case MUL:
+                    return mul;
+                case DIV:
+                    return div;
+                default:
+                    return null;
+            }
+        }
     }
 }

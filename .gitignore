@@ -98,3 +98,4 @@ src/test/
 target/classes/com/
 target/generated-sources/
 target/generated-test-sources/
+!/.gitignore
