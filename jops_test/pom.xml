@@ -10,10 +10,17 @@
 
     <properties>
         <junit.version>4.12</junit.version>
+        <jops_plugin.version>0.0.1-SNAPSHOT</jops_plugin.version>
     </properties>
 
 
     <dependencies>
+        <dependency>
+            <groupId>untitled</groupId>
+            <artifactId>jops_plugin</artifactId>
+            <version>${jops_plugin.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -31,7 +38,18 @@
                 <configuration>
                     <source>11</source>
                     <target>11</target>
+                    <compilerArgs>
+                        <!--<arg>-classpath</arg>--> <!--doing classpath like this seems to override the existing classpath somehow -->
+                        <!--<arg>/Temp/jops/jops_plugin/target/classes</arg>-->
+                        <arg>-Xplugin:BlaPlugin</arg>
+                    </compilerArgs>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>untitled</groupId>
+                        <artifactId>jops_plugin</artifactId>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>
