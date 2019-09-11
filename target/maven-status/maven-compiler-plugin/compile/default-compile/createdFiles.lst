@@ -1,8 +1,15 @@
 com\bla\OPS.class
 com\bla\BlaPlugin$1.class
-com\bla\BlaTest$BlaSimpleJavaFileObject.class
-com\bla\OperatorOverloading.class
+com\bla\BlaVerifier$BlaOverloadedClass.class
 com\bla\BlaParser.class
+com\bla\annotation\OperatorOverloading.class
+com\bla\BlaPlugin$2.class
+com\bla\OJCFieldAccess.class
+com\bla\BlaTest$SimpleFileManager.class
+com\bla\BlaVerifier$1.class
+com\bla\BlaVerifier.class
+com\bla\BlaTest$BlaSimpleJavaFileObject.class
 com\bla\Bla.class
 com\bla\BlaPlugin.class
+com\bla\OJCMethodInvocation.class
 com\bla\BlaTest.class
