@@ -146,6 +146,9 @@ public class BlaPlugin implements Plugin {
 
 
     private static Tree bla(Tree tree) {
+        //JCVariableDecl--> int i; means that the init part is null
+        if (tree == null) return null;
+
         switch (tree.getClass().getSimpleName()) {
             case "JCClassDecl":
                 JCClassDecl classDecl = (JCClassDecl) tree;

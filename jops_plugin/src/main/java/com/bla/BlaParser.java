@@ -71,14 +71,14 @@ public class BlaParser implements Parser {
 
     private String stripComments(final String source) {
         String bla = source;
-        int index, leftComment, rightComment = -1;
+        int index = -1, leftComment, rightComment = -1;
 
         //skip single line comments
-        if ((index = bla.indexOf("//")) != -1) {
+        while ((index = bla.indexOf("//", index + 1)) != -1) {
             final int len = bla.indexOf('\n', index) - index - 2;
             bla = strcat(bla, fill(len), index + 2, len);
         }
-
+        //TODO merge both single line/blocks into a single loop
         //skip blocks
         while ((leftComment = bla.indexOf("/*", rightComment)) != -1) {
             final int len;
@@ -113,6 +113,8 @@ public class BlaParser implements Parser {
     }
 
     private String fill(final int len) {
+        if (len == 0) return "";//format %1$0s breaks
+
         String paddedString = String.format("%1$" + len + "s", "");
         if (DEBUG) return paddedString.replace(" ", "X");
         return paddedString;
