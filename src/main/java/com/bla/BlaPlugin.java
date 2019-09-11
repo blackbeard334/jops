@@ -10,6 +10,7 @@ import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAssignOp;
 import com.sun.tools.javac.tree.JCTree.JCBinary;
@@ -18,15 +19,12 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
 
-import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
-import javax.tools.SimpleJavaFileObject;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.Buffer;
+import java.nio.CharBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +47,7 @@ import static com.sun.tools.javac.tree.JCTree.JCStatement;
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
-    private static Map<URI, URI>                             changedFiles      = new HashMap<>();
+    private static List<JavaFileObject>                      changedFiles      = new ArrayList<>();
     private static Map<Name, Type>                           nameTypeMap       = new HashMap<>();
     private static Map<Name, BlaVerifier.BlaOverloadedClass> overloadedClasses = new HashMap<>();
 
@@ -82,12 +80,12 @@ public class BlaPlugin implements Plugin {
                  * if it's in-memory, then reflection?
                  */
                 try {
-                    BlaParser blaParser = new BlaParser(sourceFile.getCharContent(false).toString());
+                    final CharBuffer src = (CharBuffer) sourceFile.getCharContent(false);
+                    BlaParser blaParser = new BlaParser(src.toString());
                     if (blaParser.hasOverloadingShallow()) {
                         final String confusion = blaParser.parseAndReplace();
-                        final Path tempFilePath = createTempFile(sourceFile, confusion);
-                        changedFiles.put(tempFilePath.toUri(), sourceFile.toUri());
-                        updateClientFileObject(sourceFile, confusion, tempFilePath);
+                        updateClientFileObject(sourceFile, src, CharBuffer.wrap(confusion.toCharArray()));
+                        changedFiles.add(sourceFile);
                     }
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -100,8 +98,7 @@ public class BlaPlugin implements Plugin {
                 switch (e.getKind()) {
                     case PARSE: {
                         final BlaVerifier blaVerifier = new BlaVerifier(e.getCompilationUnit());
-                        final URI uri = e.getSourceFile().toUri();
-                        if (changedFiles.containsKey(uri)) {
+                        if (changedFiles.contains(e.getSourceFile())) {
                             if (!blaVerifier.isValid()) {
 //                        changedFiles.remove(uri);//TODO
                             } else {
@@ -261,45 +258,58 @@ public class BlaPlugin implements Plugin {
     }
 
     private static boolean isOverloadedType(Name name) {//TODO rename
-        return overloadedClasses.keySet().contains(name);
+        return overloadedClasses.containsKey(name);
     }
 
     private static boolean isOverloadedType(JCTree.JCIdent ident) {
         return isOverloadedType(ident.getName());
     }
 
-    private boolean updateClientFileObject(final JavaFileObject sourceFile, final String str, final Path path) {
-        Field clientFileObjectField = null;
-        Field uriField = null, fileContentField = null;
-        Field stringValueField = null, stringCoderField = null, stringHashField = null;
+    private boolean updateClientFileObject(final JavaFileObject sourceFile, CharBuffer originalSourceCode, final CharBuffer replacedSourceCode) {
+        Field fileManagerField = null;
+        Field hbField = null, offsetField = null, readOnlyField = null, markField = null, positionField = null, limitField = null, capacityField = null, addessField = null;
         try {
-            clientFileObjectField = sourceFile.getClass().getSuperclass().getDeclaredField("clientFileObject");
-            clientFileObjectField.setAccessible(true);
-            FileObject clientFileObject = (FileObject) clientFileObjectField.get(sourceFile);
+            fileManagerField = sourceFile.getClass().getSuperclass().getDeclaredField("fileManager");
+            fileManagerField.setAccessible(true);
+            JavacFileManager fileManagerObject = (JavacFileManager) fileManagerField.get(sourceFile);
+            fileManagerObject.cache(sourceFile, replacedSourceCode);
             {
-                uriField = SimpleJavaFileObject.class.getDeclaredField("uri");
-                uriField.setAccessible(true);
-                uriField.set(clientFileObject, path.toUri());
+                /*
+                 The source is alraedy read at com.sun.tools.javac.main.JavaCompiler.parse(javax.tools.JavaFileObject)
+                 So we need to change it here
+                 */
+                hbField = CharBuffer.class.getDeclaredField("hb");
+                hbField.setAccessible(true);
+                hbField.set(originalSourceCode, hbField.get(replacedSourceCode));
 
-                fileContentField = BlaSimpleJavaFileObject.class.getDeclaredField("fileContent");
-                fileContentField.setAccessible(true);
-                String fileContent = (String) fileContentField.get(clientFileObject);
+                offsetField = CharBuffer.class.getDeclaredField("offset");
+                offsetField.setAccessible(true);
+                offsetField.set(originalSourceCode, offsetField.get(replacedSourceCode));
+
+                readOnlyField = CharBuffer.class.getDeclaredField("isReadOnly");
+                readOnlyField.setAccessible(true);
+                readOnlyField.set(originalSourceCode, readOnlyField.get(replacedSourceCode));
+
                 {
-                    /*
-                     The source is alraedy read at com.sun.tools.javac.main.JavaCompiler.parse(javax.tools.JavaFileObject)
-                     So we need to change it here
-                     */
-                    stringValueField = String.class.getDeclaredField("value");
-                    stringValueField.setAccessible(true);
-                    stringValueField.set(fileContent, stringValueField.get(str));
+                    markField = Buffer.class.getDeclaredField("mark");
+                    markField.setAccessible(true);
+                    markField.set(originalSourceCode, markField.get(replacedSourceCode));
 
-                    stringCoderField = String.class.getDeclaredField("coder");
-                    stringCoderField.setAccessible(true);
-                    stringCoderField.set(fileContent, stringCoderField.get(str));
+                    positionField = Buffer.class.getDeclaredField("position");
+                    positionField.setAccessible(true);
+                    positionField.set(originalSourceCode, positionField.get(replacedSourceCode));
 
-                    stringHashField = String.class.getDeclaredField("hash");
-                    stringHashField.setAccessible(true);
-                    stringHashField.set(fileContent, stringHashField.get(str));
+                    limitField = Buffer.class.getDeclaredField("limit");
+                    limitField.setAccessible(true);
+                    limitField.set(originalSourceCode, limitField.get(replacedSourceCode));
+
+                    capacityField = Buffer.class.getDeclaredField("capacity");
+                    capacityField.setAccessible(true);
+                    capacityField.set(originalSourceCode, capacityField.get(replacedSourceCode));
+
+                    addessField = Buffer.class.getDeclaredField("address");
+                    addessField.setAccessible(true);
+                    addessField.set(originalSourceCode, addessField.get(replacedSourceCode));
                 }
             }
             return true;
@@ -307,31 +317,29 @@ public class BlaPlugin implements Plugin {
             ex.printStackTrace();
             return false;
         } finally {
-            if (clientFileObjectField != null)
-                clientFileObjectField.setAccessible(false);
+            if (fileManagerField != null)
+                fileManagerField.setAccessible(false);
             {
-                if (uriField != null)
-                    uriField.setAccessible(false);
-                if (fileContentField != null)
-                    fileContentField.setAccessible(false);
+                if (hbField != null)
+                    hbField.setAccessible(false);
+                if (offsetField != null)
+                    offsetField.setAccessible(false);
+                if (readOnlyField != null)
+                    readOnlyField.setAccessible(false);
                 {
-                    if (stringValueField != null)
-                        stringValueField.setAccessible(false);
-                    if (stringCoderField != null)
-                        stringCoderField.setAccessible(false);
-                    if (stringHashField != null)
-                        stringHashField.setAccessible(false);
+                    if (markField != null)
+                        markField.setAccessible(false);
+                    if (positionField != null)
+                        positionField.setAccessible(false);
+                    if (limitField != null)
+                        limitField.setAccessible(false);
+                    if (capacityField != null)
+                        capacityField.setAccessible(false);
+                    if (addessField != null)
+                        addessField.setAccessible(false);
                 }
             }
         }
-    }
-
-    private Path createTempFile(final JavaFileObject sourceFile, final CharSequence csq) throws IOException {
-        final Path fileName = Paths.get(sourceFile.toUri()).getFileName();
-        final Path tempDir = Files.createTempDirectory("");
-        final Path tempFile = Files.createFile(tempDir.resolve(fileName));
-
-        return Files.writeString(tempFile, csq);
     }
 
     private boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
