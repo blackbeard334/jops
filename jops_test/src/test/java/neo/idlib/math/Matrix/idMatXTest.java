@@ -186,7 +186,7 @@ public class idMatXTest {
 
         m1.LU_Factor(null);    // no pivoting
         m1.LU_UnpackFactors(m2, m3);
-        m1.oSet(m2.oMultiply(m3));
+        m1.oSet(m2 * m3);
 
         Assert.assertTrue("idMatX::LU_Factor failed", original.Compare(m1, 1e-4f));
     }
@@ -335,7 +335,7 @@ public class idMatXTest {
 
         m1.QR_Factor(c, d);
         m1.QR_UnpackFactors(q1, r1, c, d);
-        m1.oSet(q1.oMultiply(r1));
+        m1.oSet(q1 * r1);
 
         Assert.assertTrue("idMatX::QR_Factor failed", original.Compare(m1, 1e-4f));
     }
@@ -361,11 +361,11 @@ public class idMatXTest {
             assert (false);
         }
         m2.QR_UnpackFactors(q2, r2, c, d);
-        m2 = q2.oMultiply(r2);
+        m2 = q2 * r2;
 
         // update factored m1
         q1.QR_UpdateRankOne(r1, v, w, 1.0f);
-        m1 = q1.oMultiply(r1);
+        m1 = q1 * r1;
 
         Assert.assertTrue("idMatX::QR_UpdateRankOne failed", m1.Compare(m2, 1e-4f));
     }
@@ -393,11 +393,11 @@ public class idMatXTest {
                 assert (false);
             }
             m2.QR_UnpackFactors(q2, r2, c, d);
-            m2 = q2.oMultiply(r2);
+            m2 = q2 * r2;
 
             // update m1
             q1.QR_UpdateRowColumn(r1, v, w, offset);
-            m1 = q1.oMultiply(r1);
+            m1 = q1 * r1;
 
             Assert.assertTrue("idMatX::QR_UpdateRowColumn failed", m1.Compare(m2, 1e-3f));
         }
@@ -425,11 +425,11 @@ public class idMatXTest {
             assert (false);
         }
         m2.QR_UnpackFactors(q2, r2, c, d);
-        m2 = q2.oMultiply(r2);
+        m2 = q2 * r2;
 
         // update factored m1
         q1.QR_UpdateIncrement(r1, v, w);
-        m1 = q1.oMultiply(r1);
+        m1 = q1 * r1;
 
         Assert.assertTrue("idMatX::QR_UpdateIncrement failed", !m1.Compare(m2, 1e-4f));
     }
@@ -464,11 +464,11 @@ public class idMatXTest {
                 assert (false);
             }
             m2.QR_UnpackFactors(q2, r2, c, d);
-            m2 = q2.oMultiply(r2);
+            m2 = q2 * r2;
 
             // update factors of m1
             q1.QR_UpdateDecrement(r1, v, w, offset);
-            m1.oSet(q1.oMultiply(r1));
+            m1.oSet(q1 * r1);
 
             Assert.assertTrue("idMatX::QR_UpdateDecrement failed", m1.Compare(m2, 1e-3f));
         }
@@ -501,7 +501,7 @@ public class idMatXTest {
         m1.SVD_Factor(w, m3);
         m2.Diag(w);
         m3.TransposeSelf();
-        m1.oSet(m1.oMultiply(m2).oMultiply(m3));
+        m1.oSet(m1 + m2 * m3);
     }
 
     @Test
@@ -581,7 +581,7 @@ public class idMatXTest {
     @Test
     public void Cholesky_UpdateIncrementTest() {
         m1.Random(size + 1, size + 1, 0);
-        m3.oSet(m1.oMultiply(m1.Transpose()));
+        m3.oSet(m1 * m1.Transpose());
 
         m1.SquareSubMatrix(m3, size);
         m2.oSet(m1);
@@ -657,7 +657,7 @@ public class idMatXTest {
         Assert.assertTrue("idMatX::LDLT_Factor failed", original.Compare(m2, 1e-4f));
 
         m1.LDLT_UnpackFactors(m2, m3);
-        m2 = m2.oMultiply(m3).oMultiply(m2.Transpose());
+        m2 = m2 * m3 * m2.Transpose();
 
         Assert.assertTrue("idMatX::LDLT_Factor failed", original.Compare(m2, 1e-4f));
     }
@@ -715,7 +715,7 @@ public class idMatXTest {
     @Test
     public void LDLT_UpdateIncrementTest() {
         m1.Random(size + 1, size + 1, 0);
-        m3 = m1.oMultiply(m1.Transpose());
+        m3 = m1 * m1.Transpose();
 
         m1.SquareSubMatrix(m3, size);
         m2.oSet(m1);

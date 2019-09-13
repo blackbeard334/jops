@@ -1,5 +1,6 @@
 package neo.idlib.math.Matrix;
 
+import com.bla.annotation.OperatorOverloading;
 import neo.TempDump;
 import neo.idlib.Lib;
 import neo.idlib.Text.Str.idStr;
@@ -20,6 +21,7 @@ import static neo.idlib.math.Matrix.idMat0.MATRIX_INVERSE_EPSILON;
 import static neo.idlib.math.Simd.SIMDProcessor;
 import static neo.idlib.math.Vector.idVecX.VECX_ALLOCA;
 
+@OperatorOverloading
 public class idMatX {
 //===============================================================
 //
@@ -170,7 +172,7 @@ public class idMatX {
     }
 //public	idMatX			operator*( const idMatX &a ) const;
 
-    public idMatX oMultiply(final idMatX a) {
+    public idMatX operator*(final idMatX a) {
         idMatX dst = new idMatX();
 
         assert (numColumns == a.numRows);
