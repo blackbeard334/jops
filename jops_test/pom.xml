@@ -48,6 +48,7 @@
                     <dependency>
                         <groupId>untitled</groupId>
                         <artifactId>jops_plugin</artifactId>
+                        <version>${jops_plugin.version}</version>
                     </dependency>
                 </dependencies>
             </plugin>
