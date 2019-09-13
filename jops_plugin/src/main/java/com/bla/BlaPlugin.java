@@ -1,5 +1,6 @@
 package com.bla;
 
+import com.bla.annotation.OperatorOverloading;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.Tree;
@@ -9,6 +10,8 @@ import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.MultiTaskListener;
+import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
@@ -26,8 +29,10 @@ import java.nio.Buffer;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.bla.BlaTest.BlaSimpleJavaFileObject;
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
@@ -50,6 +55,7 @@ public class BlaPlugin implements Plugin {
     private static List<JavaFileObject>                      changedFiles      = new ArrayList<>();
     private static Map<Name, Type>                           nameTypeMap       = new HashMap<>();
     private static Map<Name, BlaVerifier.BlaOverloadedClass> overloadedClasses = new HashMap<>();
+    private static Set<Symbol>                               checkedClasses    = new HashSet<>();
 
     @Override
     public String getName() {
@@ -109,8 +115,9 @@ public class BlaPlugin implements Plugin {
                     }
 
                     case ENTER:/*the dragon*/ {
+                        loadClassFiles(e);
                         if (!hasOverloadedClassesImported(e.getCompilationUnit())) {
-                            return;
+                            return;//TODO add some kind of extra check for same package classes taht don't require an import
                         }
 
                         /**
@@ -156,6 +163,8 @@ public class BlaPlugin implements Plugin {
                 break;
             case "JCVariableDecl":
                 JCVariableDecl variableDecl = (JCVariableDecl) tree;
+                //names can be reused across different classes, so remove it just in case
+                nameTypeMap.remove(variableDecl.getName()); //TODO maybe we should push/pop this just in case some class with a variable 'm' calls an external class with a reused name? is that even possible...
                 if (variableDecl.getType() instanceof JCTree.JCIdent) {  //TODO optimize later
                     final JCTree.JCIdent type = (JCTree.JCIdent) variableDecl.getType();
                     if (isOverloadedType(type)) {
@@ -186,14 +195,26 @@ public class BlaPlugin implements Plugin {
                     if (nameTypeMap.containsKey(lhs.getName())) {
                         final Type type = nameTypeMap.get(lhs.getName());
                         final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type.tsym.name);
-                        final JCMethodDecl method = overloadedClass.getMethod(binary.getTag());
+                        final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(binary.getTag(), type.tsym.name);
 
                         if (method != null) {
                             // return new method invoke
-                            final OJCFieldAccess overriddenMethod = new OJCFieldAccess(binary.lhs, method.getName());
-                            return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(binary.rhs));
+                            final OJCFieldAccess overriddenMethod = new OJCFieldAccess(binary.lhs, method.methodName);
+                            return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(binary.rhs), method.returnType);
                         }
                         // if type has binary.getOperator() && binary.rhs is the correct param type
+                    }
+                } else if (binary.lhs instanceof OJCMethodInvocation) {
+                    OJCMethodInvocation lhs = (OJCMethodInvocation) binary.lhs;
+                    if (nameTypeMap.containsKey(lhs.returnType)) {
+                        final Type type = nameTypeMap.get(lhs.returnType);
+                        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type.tsym.name);
+                        final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(binary.getTag(), lhs.returnType);
+
+                        if (method != null) {
+                            final OJCFieldAccess overriddenMethod = new OJCFieldAccess(binary.lhs, method.methodName);
+                            return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(binary.rhs), method.returnType);
+                        }
                     }
                 }
                 break;
@@ -346,10 +367,54 @@ public class BlaPlugin implements Plugin {
     }
 
     private boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
+        /*TODO how do we check files in the same package that don't require imports
+            since we can't always rely on imports for stuff in same package:
+            ((Scope.ScopeImpl) ((JCTree.JCPackageDecl) e.getCompilationUnit().getPackage()).packge.members()).table
+         */
+        return hasOverloadedImport(compilationUnit) || hasOverloadedPackageMate(compilationUnit);
+    }
+
+    private boolean hasOverloadedImport(CompilationUnitTree compilationUnit) {
         return compilationUnit.getImports().stream()
                 .map(ImportTree::getQualifiedIdentifier)
                 .map(JCTree.JCFieldAccess.class::cast)
                 .map(JCTree.JCFieldAccess::getIdentifier)
                 .anyMatch(BlaPlugin::isOverloadedType);
+    }
+
+    private boolean hasOverloadedPackageMate(CompilationUnitTree compilationUnit) {
+        for (Symbol symbol : ((JCTree.JCPackageDecl) compilationUnit.getPackage()).packge.members().getSymbols()) {
+            if (BlaPlugin.isOverloadedType(symbol.getSimpleName()))
+                return true;
+        }
+        return false;
+    }
+
+
+    /** this method checks all class files for possible classes with our overloading annotation */
+    private void loadClassFiles(TaskEvent e) {
+        for (Symbol packge : ((JCTree.JCCompilationUnit) e.getCompilationUnit()).modle.getEnclosedElements()) {
+            for (Symbol clazz : ((Symbol.PackageSymbol) packge).members_field.getSymbols()) {
+                if (checkedClasses.contains(clazz) || isOverloadedType(clazz.getSimpleName())) continue;
+
+                if (hasOperatorOverloadingAnnotation(clazz)) {
+                    //parse and add to some list
+                    BlaClassVerifier classVerifier = new BlaClassVerifier((Symbol.ClassSymbol) clazz);
+                    overloadedClasses.put(clazz.getSimpleName(), classVerifier.getOverloadedClass());
+                }
+                checkedClasses.add(clazz);
+            }
+        }
+    }
+
+    private boolean hasOperatorOverloadingAnnotation(Symbol clazz) {
+        if (clazz.getMetadata() != null) {
+            final com.sun.tools.javac.util.List<Attribute.Compound> annotations = clazz.getMetadata().getDeclarationAttributes();
+            return annotations != null && annotations.stream()
+                    .map(Attribute.Compound::getAnnotationType)
+                    .map(Object::toString)
+                    .anyMatch(OperatorOverloading.class.getName()::equals);
+        }
+        return false;
     }
 }

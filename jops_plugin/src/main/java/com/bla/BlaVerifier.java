@@ -11,6 +11,7 @@ import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.util.Name;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class BlaVerifier {
@@ -32,7 +33,7 @@ public class BlaVerifier {
         return false;
     }
 
-    public List<BlaOverloadedClass> getOverloadedClasses() {
+    public List<BlaOverloadedClass> getOverloadedClasses() {//TODO add a similar method for parsing class files
         final JCClassDecl firstClass = (JCClassDecl) this.compilationUnit.getTypeDecls().get(0);
 
         final List<JCMethodDecl> allMethods = firstClass.getMembers().stream()
@@ -47,11 +48,20 @@ public class BlaVerifier {
         return List.of(overloadedClass);//TODO populate list of nested qualifiying ONLY classes
     }
 
-    private JCMethodDecl getMethod(final String methodName, final List<JCMethodDecl> allMethods) {
+    private Map<Name, BlaOverloadedClass.BlaOverloadedMethod> getMethod(final String methodName, final List<JCMethodDecl> allMethods) {
         return allMethods.stream()
-                .filter(m -> methodName.equals(m.name.toString()))
-                .findFirst()
-                .orElse(null);
+                .filter(n -> methodName.equals(n.getName().toString()))
+                .filter(i -> i.getParameters().size() == 1)
+                .filter(i -> i.getParameters().get(0).vartype instanceof JCTree.JCIdent)//FIXME temp hack to avoid primitive params
+                .collect(Collectors.toMap(BlaVerifier::getParamName, i -> new BlaOverloadedClass.BlaOverloadedMethod(i.name, getParamName(i), ((JCTree.JCIdent) i.restype).name)));
+    }
+
+    private static Name getParamName(JCMethodDecl decl) {
+        final JCTree.JCExpression firstParam = decl.params.get(0).vartype;
+        if (firstParam instanceof JCTree.JCIdent)
+            return ((JCTree.JCIdent) firstParam).name;
+        else
+            return ((JCTree.JCPrimitiveTypeTree) firstParam).type.tsym.name;
     }
 
     private boolean isValid(JCClassDecl type) {
@@ -94,9 +104,13 @@ public class BlaVerifier {
         return false;
     }
 
-    class BlaOverloadedClass {
+    static class BlaOverloadedClass {
         final Name name;
-        JCMethodDecl plus, minus, mul, div;//TODO generalize this
+        Map<Name, BlaOverloadedMethod> plus;
+        Map<Name, BlaOverloadedMethod> minus;
+        Map<Name, BlaOverloadedMethod> mul;
+        Map<Name, BlaOverloadedMethod> div;//TODO generalize this
+
 
         public BlaOverloadedClass(final Name name) {
             this.name = name;
@@ -106,18 +120,30 @@ public class BlaVerifier {
             return name;
         }
 
-        JCMethodDecl getMethod(final JCTree.Tag opcode) {
+        BlaOverloadedMethod getMethod(final JCTree.Tag opcode, Name paramType) {
             switch (opcode) {
                 case PLUS:
-                    return plus;
+                    return plus.get(paramType);
                 case MINUS:
-                    return minus;
+                    return minus.get(paramType);
                 case MUL:
-                    return mul;
+                    return mul.get(paramType);
                 case DIV:
-                    return div;
+                    return div.get(paramType);
                 default:
                     return null;
+            }
+        }
+
+        static class BlaOverloadedMethod {
+            final Name methodName;
+            final Name paramType;
+            final Name returnType;
+
+            BlaOverloadedMethod(Name methodName, Name paramType, Name returnType) {
+                this.methodName = methodName;
+                this.paramType = paramType;
+                this.returnType = returnType;
             }
         }
     }
