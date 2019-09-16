@@ -20,10 +20,16 @@ public class BlaClassVerifier {
                 .map(Symbol.MethodSymbol.class::cast)
                 .collect(Collectors.toList());
         final BlaVerifier.BlaOverloadedClass overloadedClass = new BlaVerifier.BlaOverloadedClass(classSymbol.getSimpleName());
-        overloadedClass.plus = getMethod("oPlus", allMethods);
-        overloadedClass.minus = getMethod("oMinus", allMethods);
-        overloadedClass.mul = getMethod("oMultiply", allMethods);
-        overloadedClass.div = getMethod("oDivide", allMethods);
+
+        overloadedClass.plus = getMethod(OPS.PLUS.override, allMethods);
+        overloadedClass.minus = getMethod(OPS.MINUS.override, allMethods);
+        overloadedClass.mul = getMethod(OPS.MUL.override, allMethods);
+        overloadedClass.div = getMethod(OPS.DIV.override, allMethods);
+
+        overloadedClass.plus_asg = getMethod(OPS.PLUS_ASG.override, allMethods);
+        overloadedClass.minus_asg = getMethod(OPS.MINUS_ASG.override, allMethods);
+        overloadedClass.mul_asg = getMethod(OPS.MUL_ASG.override, allMethods);
+        overloadedClass.div_asg = getMethod(OPS.DIV_ASG.override, allMethods);
         return overloadedClass;
     }
 

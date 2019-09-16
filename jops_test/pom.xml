@@ -6,11 +6,11 @@
 
     <groupId>untitled</groupId>
     <artifactId>jops_test</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
 
     <properties>
         <junit.version>4.12</junit.version>
-        <jops_plugin.version>0.0.1-SNAPSHOT</jops_plugin.version>
+        <jops_plugin.version>0.0.2-SNAPSHOT</jops_plugin.version>
     </properties>
 
 

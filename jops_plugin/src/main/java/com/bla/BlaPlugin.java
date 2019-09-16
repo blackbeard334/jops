@@ -52,7 +52,7 @@ public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
     private static List<JavaFileObject>                      changedFiles      = new ArrayList<>();
-    private static Map<Name, Name>                           nameTypeMap       = new HashMap<>();
+    private static Map<Name, Name>                           nameTypeMap       = new HashMap<>();//TODO would using name instead of type use for different types with the same name?
     private static Map<Name, BlaVerifier.BlaOverloadedClass> overloadedClasses = new HashMap<>();
     private static Set<Symbol>                               checkedClasses    = new HashSet<>();
 
@@ -190,34 +190,7 @@ public class BlaPlugin implements Plugin {
                 binary.lhs = (JCExpression) bla(binary.lhs);
                 binary.rhs = (JCExpression) bla(binary.rhs);
                 //TODO wait for the recursive calls to return to know all the return values
-                if (binary.lhs instanceof JCTree.JCIdent) {
-                    JCTree.JCIdent lhs = (JCTree.JCIdent) binary.lhs;
-                    if (nameTypeMap.containsKey(lhs.getName())) {
-                        final Name type = nameTypeMap.get(lhs.getName());
-                        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type);
-                        if (overloadedClass != null) {
-                            final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(binary.getTag(), type);
-                            if (method != null) {
-                                // return new method invoke
-                                final OJCFieldAccess overriddenMethod = new OJCFieldAccess(binary.lhs, method.methodName);
-                                return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(binary.rhs), method.returnType);
-                            }
-                            // if type has binary.getOperator() && binary.rhs is the correct param type
-                        }
-                    }
-                } else if (binary.lhs instanceof OJCMethodInvocation) {
-                    OJCMethodInvocation lhs = (OJCMethodInvocation) binary.lhs;
-                    if (overloadedClasses.containsKey(lhs.returnType)) {
-                        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
-                        final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(binary.getTag(), lhs.returnType);
-
-                        if (method != null) {
-                            final OJCFieldAccess overriddenMethod = new OJCFieldAccess(binary.lhs, method.methodName);
-                            return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(binary.rhs), method.returnType);
-                        }
-                    }
-                }
-                break;
+                return parseOperatorExpression(binary);
             case "JCBlock":
                 JCBlock block = (JCBlock) tree;
                 block.stats.forEach(BlaPlugin::bla);
@@ -250,7 +223,7 @@ public class BlaPlugin implements Plugin {
                 JCAssignOp assignOp = (JCAssignOp) tree;
                 assignOp.lhs = (JCExpression) bla(assignOp.lhs);
                 assignOp.rhs = (JCExpression) bla(assignOp.rhs);
-                break;
+                return parseOperatorExpression(assignOp);
             case "JCIf":
                 JCIf jcIf = (JCIf) tree;
                 jcIf.cond = (JCExpression) bla(jcIf.cond);
@@ -416,5 +389,38 @@ public class BlaPlugin implements Plugin {
                     .anyMatch(OperatorOverloading.class.getName()::equals);
         }
         return false;
+    }
+
+    private static Tree parseOperatorExpression(JCTree.JCOperatorExpression expression) {
+        final JCExpression left = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.LEFT);
+        final JCExpression right = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.RIGHT);
+        if (left instanceof JCTree.JCIdent) {
+            JCTree.JCIdent lhs = (JCTree.JCIdent) left;
+            if (nameTypeMap.containsKey(lhs.getName())) {
+                final Name type = nameTypeMap.get(lhs.getName());
+                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type);
+                if (overloadedClass != null) {
+                    final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), type);
+                    if (method != null) {
+                        // return new method invoke
+                        final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
+                        return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
+                    }
+                    // if type has binary.getOperator() && binary.rhs is the correct param type
+                }
+            }
+        } else if (left instanceof OJCMethodInvocation) {
+            OJCMethodInvocation lhs = (OJCMethodInvocation) left;
+            if (overloadedClasses.containsKey(lhs.returnType)) {
+                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
+                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), lhs.returnType);
+
+                if (method != null) {
+                    final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
+                    return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
+                }
+            }
+        }
+        return expression;
     }
 }
