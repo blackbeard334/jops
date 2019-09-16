@@ -501,7 +501,7 @@ public class idMatXTest {
         m1.SVD_Factor(w, m3);
         m2.Diag(w);
         m3.TransposeSelf();
-        m1.oSet(m1 + m2 * m3);
+        m1.oSet(m1 * m2 * m3);
     }
 
     @Test
