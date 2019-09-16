@@ -138,9 +138,8 @@ public class idMatX {
         System.arraycopy(a.mat, 0, mat, 0, a.numRows * a.numColumns);
         return this;
     }
-//public	idMatX			operator*( const float a ) const;
 
-    public idMatX oMultiply(final float a) {
+    public idMatX operator*(final float a) {
         idMatX m = new idMatX();
 
         m.SetTempSize(numRows, numColumns);
@@ -155,9 +154,8 @@ public class idMatX {
         }
         return m;
     }
-//public	idVecX			operator*( const idVecX &vec ) const;
 
-    public idVecX oMultiply(final idVecX vec) {
+    public idVecX operator*(final idVecX vec) {
         idVecX dst = new idVecX();
 
         assert (numColumns == vec.GetSize());
@@ -170,7 +168,6 @@ public class idMatX {
         }
         return dst;
     }
-//public	idMatX			operator*( const idMatX &a ) const;
 
     public idMatX operator*(final idMatX a) {
         idMatX dst = new idMatX();
@@ -236,10 +233,9 @@ public class idMatX {
         idMatX.tempIndex = 0;
         return this;
     }
-//public	idMatX &		operator*=( const idMatX &a );
 
     public idMatX oMulSet(final idMatX a) {
-        this.oSet(this.oMultiply(a));
+        this.oSet(this * a);
         idMatX.tempIndex = 0;
         return this;
     }
@@ -278,7 +274,7 @@ public class idMatX {
 
 //public	friend idMatX	operator*( const float a, const idMatX &m );
     public static idMatX oMultiply(final float a, final idMatX m) {
-        return m.oMultiply(a);
+        return m * a;
     }
 //public	friend idVecX	operator*( const idVecX &vec, const idMatX &m );
 //public	static idVecX	oMultiply( final idVecX vec, final idMatX m ){
@@ -287,7 +283,7 @@ public class idMatX {
 //public	friend idVecX &	operator*=( idVecX &vec, const idMatX &m );
 
     public static idVecX oMultiply(idVecX vec, final idMatX m) {
-        vec = m.oMultiply(vec);
+        vec = m * vec;
         return vec;
     }
 
@@ -4350,7 +4346,7 @@ public class idMatX {
 
         size = 6;
         original.Random(size, size, 0);
-        original = original.oMultiply(original.Transpose());
+        original = original * original.Transpose();
 
         index1 = new int[size + 1];
         index2 = new int[size + 1];
@@ -4513,7 +4509,7 @@ public class idMatX {
 
         m1.LU_Factor(null);	// no pivoting
         m1.LU_UnpackFactors(m2, m3);
-        m1.oSet(m2.oMultiply(m3));
+        m1.oSet(m2 *m3);
 
         if (!original.Compare(m1, 1e-4f)) {
             //idLib.common.Warning("idMatX::LU_Factor failed");
@@ -4676,7 +4672,7 @@ public class idMatX {
 
         m1.QR_Factor(c, d);
         m1.QR_UnpackFactors(q1, r1, c, d);
-        m1.oSet(q1.oMultiply(r1));
+        m1.oSet(q1 * r1);
 
         if (!original.Compare(m1, 1e-4f)) {
             //idLib.common.Warning("idMatX::QR_Factor failed");
@@ -4704,11 +4700,11 @@ public class idMatX {
             assert (false);
         }
         m2.QR_UnpackFactors(q2, r2, c, d);
-        m2 = q2.oMultiply(r2);
+        m2 = q2 * r2;
 
         // update factored m1
         q1.QR_UpdateRankOne(r1, v, w, 1.0f);
-        m1 = q1.oMultiply(r1);
+        m1 = q1 * r1;
 
         if (!m1.Compare(m2, 1e-4f)) {
             //idLib.common.Warning("idMatX::QR_UpdateRankOne failed");
@@ -4738,11 +4734,11 @@ public class idMatX {
                 assert (false);
             }
             m2.QR_UnpackFactors(q2, r2, c, d);
-            m2 = q2.oMultiply(r2);
+            m2 = q2 * r2;
 
             // update m1
             q1.QR_UpdateRowColumn(r1, v, w, offset);
-            m1 = q1.oMultiply(r1);
+            m1 = q1 * r1;
 
             if (!m1.Compare(m2, 1e-3f)) {
                 //idLib.common.Warning("idMatX::QR_UpdateRowColumn failed");
@@ -4773,11 +4769,11 @@ public class idMatX {
             assert (false);
         }
         m2.QR_UnpackFactors(q2, r2, c, d);
-        m2 = q2.oMultiply(r2);
+        m2 = q2 * r2;
 
         // update factored m1
         q1.QR_UpdateIncrement(r1, v, w);
-        m1 = q1.oMultiply(r1);
+        m1 = q1 * r1;
 
         if (!m1.Compare(m2, 1e-4f)) {
             //idLib.common.Warning("idMatX::QR_UpdateIncrement failed");
@@ -4810,11 +4806,11 @@ public class idMatX {
                 assert (false);
             }
             m2.QR_UnpackFactors(q2, r2, c, d);
-            m2 = q2.oMultiply(r2);
+            m2 = q2 * r2;
 
             // update factors of m1
             q1.QR_UpdateDecrement(r1, v, w, offset);
-            m1.oSet(q1.oMultiply(r1));
+            m1.oSet(q1 * r1);
 
             if (!m1.Compare(m2, 1e-3f)) {
                 //idLib.common.Warning("idMatX::QR_UpdateDecrement failed");
@@ -4844,7 +4840,7 @@ public class idMatX {
         m1.SVD_Factor(w, m3);
         m2.Diag(w);
         m3.TransposeSelf();
-        m1.oSet(m1.oMultiply(m2).oMultiply(m3));
+        m1.oSet(m1 * m2 *m3);
 
         if (!original.Compare(m1, 1e-4f)) {
             //idLib.common.Warning("idMatX::SVD_Factor failed");
@@ -4935,7 +4931,7 @@ public class idMatX {
          idMatX::Cholesky_UpdateIncrement
          */
         m1.Random(size + 1, size + 1, 0);
-        m3.oSet(m1.oMultiply(m1.Transpose()));
+        m3.oSet(m1 * m1.Transpose());
 
         m1.SquareSubMatrix(m3, size);
         m2.oSet(m1);
@@ -5019,7 +5015,7 @@ public class idMatX {
         }
 
         m1.LDLT_UnpackFactors(m2, m3);
-        m2 = m2.oMultiply(m3).oMultiply(m2.Transpose());
+        m2 = m2 * m3 * m2.Transpose();
 
         if (!original.Compare(m2, 1e-4f)) {
             //idLib.common.Warning("idMatX::LDLT_Factor failed");
@@ -5083,7 +5079,7 @@ public class idMatX {
          idMatX::LDLT_UpdateIncrement
          */
         m1.Random(size + 1, size + 1, 0);
-        m3 = m1.oMultiply(m1.Transpose());
+        m3 = m1 * m1.Transpose();
 
         m1.SquareSubMatrix(m3, size);
         m2.oSet(m1);

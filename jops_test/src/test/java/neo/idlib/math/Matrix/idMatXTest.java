@@ -34,7 +34,7 @@ public class idMatXTest {
 
         size = 6;
         original.Random(size, size, 0);
-        original = original.oMultiply(original.Transpose());
+        original = original * original.Transpose();
 
         index1 = new int[size + 1];
         index2 = new int[size + 1];
