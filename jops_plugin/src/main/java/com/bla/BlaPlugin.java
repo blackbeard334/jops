@@ -12,7 +12,6 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAssignOp;
@@ -53,7 +52,7 @@ public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
     private static List<JavaFileObject>                      changedFiles      = new ArrayList<>();
-    private static Map<Name, Type>                           nameTypeMap       = new HashMap<>();
+    private static Map<Name, Name>                           nameTypeMap       = new HashMap<>();
     private static Map<Name, BlaVerifier.BlaOverloadedClass> overloadedClasses = new HashMap<>();
     private static Set<Symbol>                               checkedClasses    = new HashSet<>();
 
@@ -137,7 +136,7 @@ public class BlaPlugin implements Plugin {
                                 .map(ImportTree::getQualifiedIdentifier)
                                 .map(JCTree.JCFieldAccess.class::cast)
                                 .filter(i -> isOverloadedType(i.name))
-                                .forEach(i -> nameTypeMap.put(i.name, i.type)); //TODO init list with imports, and figure out how to reach da root elementz
+                                .forEach(i -> nameTypeMap.put(i.name, i.type.tsym.name)); //TODO init list with imports, and figure out how to reach da root elementz
                         final List<? extends Tree> typeDecls = compilationUnit.getTypeDecls();
                         typeDecls.forEach(BlaPlugin::bla);
 
@@ -159,6 +158,7 @@ public class BlaPlugin implements Plugin {
         switch (tree.getClass().getSimpleName()) {
             case "JCClassDecl":
                 JCClassDecl classDecl = (JCClassDecl) tree;
+                nameTypeMap.put(((JCClassDecl) tree).name.table.names._this, classDecl.name);//TODO is there an easier way to do this?
                 classDecl.defs.forEach(BlaPlugin::bla);
                 break;
             case "JCVariableDecl":
@@ -168,7 +168,7 @@ public class BlaPlugin implements Plugin {
                 if (variableDecl.getType() instanceof JCTree.JCIdent) {  //TODO optimize later
                     final JCTree.JCIdent type = (JCTree.JCIdent) variableDecl.getType();
                     if (isOverloadedType(type)) {
-                        nameTypeMap.put(variableDecl.getName(), type.type);
+                        nameTypeMap.put(variableDecl.getName(), type.name);
                     }
                 }
                 variableDecl.init = (JCExpression) bla(variableDecl.init);
@@ -180,7 +180,7 @@ public class BlaPlugin implements Plugin {
                         .forEach(p -> {
                             final JCTree.JCIdent type = (JCTree.JCIdent) p.getType();
                             if (isOverloadedType(type)) {
-                                nameTypeMap.put(p.getName(), type.type);
+                                nameTypeMap.put(p.getName(), type.name);
                             }
                         });
                 methodDecl.body = (JCBlock) bla(methodDecl.body);
@@ -193,16 +193,17 @@ public class BlaPlugin implements Plugin {
                 if (binary.lhs instanceof JCTree.JCIdent) {
                     JCTree.JCIdent lhs = (JCTree.JCIdent) binary.lhs;
                     if (nameTypeMap.containsKey(lhs.getName())) {
-                        final Type type = nameTypeMap.get(lhs.getName());
-                        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type.tsym.name);
-                        final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(binary.getTag(), type.tsym.name);
-
-                        if (method != null) {
-                            // return new method invoke
-                            final OJCFieldAccess overriddenMethod = new OJCFieldAccess(binary.lhs, method.methodName);
-                            return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(binary.rhs), method.returnType);
+                        final Name type = nameTypeMap.get(lhs.getName());
+                        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type);
+                        if (overloadedClass != null) {
+                            final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(binary.getTag(), type);
+                            if (method != null) {
+                                // return new method invoke
+                                final OJCFieldAccess overriddenMethod = new OJCFieldAccess(binary.lhs, method.methodName);
+                                return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(binary.rhs), method.returnType);
+                            }
+                            // if type has binary.getOperator() && binary.rhs is the correct param type
                         }
-                        // if type has binary.getOperator() && binary.rhs is the correct param type
                     }
                 } else if (binary.lhs instanceof OJCMethodInvocation) {
                     OJCMethodInvocation lhs = (OJCMethodInvocation) binary.lhs;
