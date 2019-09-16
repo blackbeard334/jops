@@ -206,9 +206,8 @@ public class BlaPlugin implements Plugin {
                     }
                 } else if (binary.lhs instanceof OJCMethodInvocation) {
                     OJCMethodInvocation lhs = (OJCMethodInvocation) binary.lhs;
-                    if (nameTypeMap.containsKey(lhs.returnType)) {
-                        final Type type = nameTypeMap.get(lhs.returnType);
-                        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type.tsym.name);
+                    if (overloadedClasses.containsKey(lhs.returnType)) {
+                        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
                         final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(binary.getTag(), lhs.returnType);
 
                         if (method != null) {
