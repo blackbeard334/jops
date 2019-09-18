@@ -12,6 +12,7 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAssignOp;
@@ -48,13 +49,21 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
+/** @version 0.73.hotfix */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
+    /** here we store the files that were changed BEFORE the PARSE stage */
     private static List<JavaFileObject>                      changedFiles      = new ArrayList<>();
+    /** this map contains variable/param/...etc names, coupled with the name of their respective types. very helpful when we traverse trees, and no longer know what the out of scope variable type is */
     private static Map<Name, Name>                           nameTypeMap       = new HashMap<>();//TODO would using name instead of type use for different types with the same name?
+    /** a map of all the classes with operator overloading. the value contains all the overloaded methods for said class */
     private static Map<Name, BlaVerifier.BlaOverloadedClass> overloadedClasses = new HashMap<>();
+    /** just a list of all the classes we already checked. is extra important when we scan .class files */
     private static Set<Symbol>                               checkedClasses    = new HashSet<>();
+
+    /** consider this an autowire. the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
+    static Symtab symtab;
 
     @Override
     public String getName() {
@@ -65,6 +74,7 @@ public class BlaPlugin implements Plugin {
     public void init(JavacTask task, String... args) {
         Context context = ((BasicJavacTask) task).getContext();
         Log.instance(context).printRawLines("Yow!!!!1One");
+        symtab = Symtab.instance(context);
 
         MultiTaskListener.instance(context);
         task.addTaskListener(new TaskListener() {
@@ -175,14 +185,8 @@ public class BlaPlugin implements Plugin {
                 break;
             case "JCMethodDecl":
                 JCMethodDecl methodDecl = (JCMethodDecl) tree;
-                methodDecl.getParameters().stream()
-                        .filter(p -> p.getType() instanceof JCTree.JCIdent)
-                        .forEach(p -> {
-                            final JCTree.JCIdent type = (JCTree.JCIdent) p.getType();
-                            if (isOverloadedType(type)) {
-                                nameTypeMap.put(p.getName(), type.name);
-                            }
-                        });
+                methodDecl.getParameters()
+                        .forEach(p -> nameTypeMap.put(p.getName(), ((JCExpression) p.getType()).type.tsym.getSimpleName()));
                 methodDecl.body = (JCBlock) bla(methodDecl.body);
                 break;
             case "JCBinary": //TODO check opcodes and types
