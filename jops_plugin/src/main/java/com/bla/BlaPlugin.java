@@ -49,7 +49,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.73.hotfix */
+/** @version 0.74 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -57,6 +57,7 @@ public class BlaPlugin implements Plugin {
     private static List<JavaFileObject>                      changedFiles      = new ArrayList<>();
     /** this map contains variable/param/...etc names, coupled with the name of their respective types. very helpful when we traverse trees, and no longer know what the out of scope variable type is */
     private static Map<Name, Name>                           nameTypeMap       = new HashMap<>();//TODO would using name instead of type use for different types with the same name?
+    private static Map<Name, Symbol>                         nameClassMap      = new HashMap<>();
     /** a map of all the classes with operator overloading. the value contains all the overloaded methods for said class */
     private static Map<Name, BlaVerifier.BlaOverloadedClass> overloadedClasses = new HashMap<>();
     /** just a list of all the classes we already checked. is extra important when we scan .class files */
@@ -175,18 +176,13 @@ public class BlaPlugin implements Plugin {
                 JCVariableDecl variableDecl = (JCVariableDecl) tree;
                 //names can be reused across different classes, so remove it just in case
                 nameTypeMap.remove(variableDecl.getName()); //TODO maybe we should push/pop this just in case some class with a variable 'm' calls an external class with a reused name? is that even possible...
-                if (variableDecl.getType() instanceof JCTree.JCIdent) {  //TODO optimize later
-                    final JCTree.JCIdent type = (JCTree.JCIdent) variableDecl.getType();
-                    if (isOverloadedType(type)) {
-                        nameTypeMap.put(variableDecl.getName(), type.name);
-                    }
-                }
+                nameTypeMap.put(variableDecl.getName(), getTypeName(variableDecl));
                 variableDecl.init = (JCExpression) bla(variableDecl.init);
                 break;
             case "JCMethodDecl":
                 JCMethodDecl methodDecl = (JCMethodDecl) tree;
                 methodDecl.getParameters()
-                        .forEach(p -> nameTypeMap.put(p.getName(), ((JCExpression) p.getType()).type.tsym.getSimpleName()));
+                        .forEach(p -> nameTypeMap.put(p.getName(), getTypeName(p)));
                 methodDecl.body = (JCBlock) bla(methodDecl.body);
                 break;
             case "JCBinary": //TODO check opcodes and types
@@ -209,6 +205,29 @@ public class BlaPlugin implements Plugin {
             case "JCParens":
                 JCParens parens = (JCParens) tree;
                 parens.expr = (JCExpression) bla(parens.expr);
+                JCExpression expr = parens.expr;
+                if (expr instanceof OJCParens ||
+                        expr instanceof JCMethodInvocation ||
+                        expr instanceof JCTree.JCIdent) {
+                    final Name returnType;
+                    if (expr instanceof OJCParens)
+                        returnType = ((OJCParens) expr).returnType;
+                    else if (expr instanceof OJCMethodInvocation)
+                        returnType = ((OJCMethodInvocation) expr).returnType;
+                    else if (expr instanceof JCMethodInvocation) {//we need to check the return type
+                        final Symbol.MethodSymbol method = getMethodSymbol((JCMethodInvocation) expr);
+
+                        returnType = method.getReturnType().tsym.getSimpleName();
+                    } else
+                        returnType = nameTypeMap.get(((JCTree.JCIdent) expr).name);
+
+                    return new OJCParens(expr, returnType);
+                }
+                /**
+                 * *return value of a method
+                 * *overloaded method
+                 * *otherwise don't change anything
+                 */
                 break;
             case "JCExpressionStatement":
                 JCExpressionStatement expressionStatement = (JCExpressionStatement) tree;
@@ -256,6 +275,51 @@ public class BlaPlugin implements Plugin {
         }
 
         return tree;
+    }
+
+    private static Symbol.MethodSymbol getMethodSymbol(JCMethodInvocation expr) {
+        final JCTree.JCFieldAccess meth = (JCTree.JCFieldAccess) expr.meth;
+        final Name methName = meth.name;
+
+        final Name selectedType = nameTypeMap.get(((JCTree.JCIdent) meth.selected).getName());
+        final Symbol selectedSymbol = nameClassMap.get(selectedType);
+
+        Name argType = null;
+        if (!expr.getArguments().isEmpty()) {//0 arg method invoke
+            final JCExpression arg0 = expr.getArguments().get(0);
+            if (arg0 instanceof JCTree.JCIdent)
+                argType = nameTypeMap.get(((JCTree.JCIdent) arg0).getName());
+            else if (arg0 instanceof JCMethodInvocation)
+                argType = nameTypeMap.get(getMethodSymbol((JCMethodInvocation) arg0).getReturnType().tsym.getSimpleName());
+        }
+        final Symbol argSymbol = nameClassMap.get(argType);
+
+        //TODO get method return type from symbol
+        return selectedSymbol.getEnclosedElements().stream()//TODO cache results
+                .filter(Symbol.MethodSymbol.class::isInstance)
+                .map(Symbol.MethodSymbol.class::cast)
+                .filter(m -> m.getSimpleName().equals(methName))
+                .filter(m -> m.getParameters().size() == 1)//we assume a single param here
+                .filter(m -> m.getParameters().stream().anyMatch(p -> p.type.tsym.equals(argSymbol)))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static Name getTypeName(JCVariableDecl variableDecl) {
+        final JCTree type = variableDecl.getType();
+        if (type instanceof JCTree.JCPrimitiveTypeTree) {
+            return BlaVerifier.getPrimitiveType((JCTree.JCPrimitiveTypeTree) type);
+        }
+        if (type instanceof JCTree.JCIdent) {
+            final JCTree.JCIdent ident = (JCTree.JCIdent) type;
+            if (ident.sym != null)//JCNewClass has no symbology..TODO unlikely, but what if we only have JCNewClass for everything???
+                nameClassMap.put(ident.getName(), ident.sym);
+            return ident.getName();
+        }
+        if (type instanceof JCTree.JCArrayTypeTree) {
+            return symtab.arraysType.tsym.name;
+        }
+        return ((JCExpression) type).type.tsym.getSimpleName();
     }
 
     private static boolean isOverloadedType(Name name) {//TODO rename
@@ -415,6 +479,17 @@ public class BlaPlugin implements Plugin {
             }
         } else if (left instanceof OJCMethodInvocation) {
             OJCMethodInvocation lhs = (OJCMethodInvocation) left;
+            if (overloadedClasses.containsKey(lhs.returnType)) {
+                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
+                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), lhs.returnType);
+
+                if (method != null) {
+                    final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
+                    return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
+                }
+            }
+        } else if (left instanceof OJCParens) {
+            OJCParens lhs = (OJCParens) left;
             if (overloadedClasses.containsKey(lhs.returnType)) {
                 final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
                 final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), lhs.returnType);

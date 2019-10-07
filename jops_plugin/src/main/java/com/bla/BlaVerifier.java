@@ -93,27 +93,32 @@ public class BlaVerifier {
     private static Name getName(JCTree.JCExpression type) {
         if (type instanceof JCTree.JCIdent)
             return ((JCTree.JCIdent) type).name;
-        else
-            switch (((JCTree.JCPrimitiveTypeTree) type).typetag) {
-                case BYTE:
-                    return BlaPlugin.symtab.byteType.tsym.name;
-                case CHAR:
-                    return BlaPlugin.symtab.charType.tsym.name;
-                case SHORT:
-                    return BlaPlugin.symtab.shortType.tsym.name;
-                case LONG:
-                    return BlaPlugin.symtab.longType.tsym.name;
-                case FLOAT:
-                    return BlaPlugin.symtab.floatType.tsym.name;
-                case INT:
-                    return BlaPlugin.symtab.intType.tsym.name;
-                case DOUBLE:
-                    return BlaPlugin.symtab.doubleType.tsym.name;
-                case BOOLEAN:
-                    return BlaPlugin.symtab.booleanType.tsym.name;
-                default:
-                    return null;
-            }
+        else {
+            return getPrimitiveType((JCTree.JCPrimitiveTypeTree) type);
+        }
+    }
+
+    public static Name getPrimitiveType(JCTree.JCPrimitiveTypeTree type) {
+        switch (type.typetag) {
+            case BYTE:
+                return BlaPlugin.symtab.byteType.tsym.name;
+            case CHAR:
+                return BlaPlugin.symtab.charType.tsym.name;
+            case SHORT:
+                return BlaPlugin.symtab.shortType.tsym.name;
+            case LONG:
+                return BlaPlugin.symtab.longType.tsym.name;
+            case FLOAT:
+                return BlaPlugin.symtab.floatType.tsym.name;
+            case INT:
+                return BlaPlugin.symtab.intType.tsym.name;
+            case DOUBLE:
+                return BlaPlugin.symtab.doubleType.tsym.name;
+            case BOOLEAN:
+                return BlaPlugin.symtab.booleanType.tsym.name;
+            default:
+                return null;
+        }
     }
 
     private boolean isValid(JCClassDecl type) {
