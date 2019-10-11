@@ -22,7 +22,7 @@ import static neo.idlib.math.Vector.RAD2DEG;
 //
 //===============================================================
 public class idMat3 {
-    public static final int    BYTES         = idVec3.BYTES * 3;
+    public static final int BYTES = idVec3.BYTES * 3;
 
     private static final idMat3 mat3_zero     = new idMat3(new idVec3(0, 0, 0), new idVec3(0, 0, 0), new idVec3(0, 0, 0));
     private static final idMat3 mat3_identity = new idMat3(new idVec3(1, 0, 0), new idVec3(0, 1, 0), new idVec3(0, 0, 1));
@@ -43,7 +43,7 @@ public class idMat3 {
     final idVec3[] mat = {new idVec3(), new idVec3(), new idVec3()};
 
     private static int DBG_counter = 0;
-    private final  int DBG_count = DBG_counter++;
+    private final  int DBG_count   = DBG_counter++;
 
     public idMat3() {
     }
@@ -112,7 +112,7 @@ public class idMat3 {
         mat[index].oSet(vec3);
     }
 
-//public	idMat3			operator-() const;
+    //public	idMat3			operator-() const;
     public idMat3 oNegative() {
         return new idMat3(
                 -mat[0].x, -mat[0].y, -mat[0].z,
@@ -198,7 +198,7 @@ public class idMat3 {
 
         for (i = 0; i < 3; i++) {
             for (j = 0; j < 3; j++) {
-                dst[j]  = mat[i].x * a.mat[0].oGet(j)
+                dst[j] = mat[i].x * a.mat[0].oGet(j)
                         + mat[i].y * a.mat[1].oGet(j)
                         + mat[i].z * a.mat[2].oGet(j);
             }
@@ -369,9 +369,7 @@ public class idMat3 {
     }
 
     public void UnprojectVector(final idVec3 src, idVec3 dst) {
-        dst.oSet(mat[0].oMultiply(src.x).oPlus(
-                mat[1].oMultiply(src.y).oPlus(
-                        mat[2].oMultiply(src.z))));
+        dst.oSet(mat[0] * src.x + mat[1] * src.y + mat[2] * src.z);
     }
 
     public boolean FixDegeneracies() {// fix degenerate axial cases
@@ -526,7 +524,7 @@ public class idMat3 {
         idMat3 m = new idMat3();
         idVec3 newCenter;
 
-        newCenter = centerOfMass.oPlus(translation);
+        newCenter = centerOfMass + translation;
 
         m.mat[0].x = mass * ((centerOfMass.y * centerOfMass.y + centerOfMass.z * centerOfMass.z)
                 - (newCenter.y * newCenter.y + newCenter.z * newCenter.z));
@@ -546,7 +544,7 @@ public class idMat3 {
         idMat3 m = new idMat3();
         idVec3 newCenter;
 
-        newCenter = centerOfMass.oPlus(translation);
+        newCenter = centerOfMass + translation;
 
         m.mat[0].x = mass * ((centerOfMass.y * centerOfMass.y + centerOfMass.z * centerOfMass.z)
                 - (newCenter.y * newCenter.y + newCenter.z * newCenter.z));
@@ -732,7 +730,7 @@ public class idMat3 {
 
     public idVec3 ToAngularVelocity() {
         idRotation rotation = ToRotation();
-        return rotation.GetVec().oMultiply((float) DEG2RAD(rotation.GetAngle()));
+        return rotation.GetVec() * ((float) DEG2RAD(rotation.GetAngle()));
     }
 
     /**

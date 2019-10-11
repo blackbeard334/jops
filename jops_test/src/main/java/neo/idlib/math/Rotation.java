@@ -113,7 +113,10 @@ public class Rotation {
             if (!axisValid) {
                 ToMat3();
             }
-            return (axis.oMultiply(v.oMinus(origin))).oPlus(origin);
+            int a = (1 + 2);
+            idVec3 bla = (v);
+            idVec3 bla2 = ((v));
+            return (axis.oMultiply(v.oMinus(origin))) + origin;
         }
 //
 //	friend idRotation	operator*( const float s, const idRotation &r );		// scale rotation
@@ -124,7 +127,7 @@ public class Rotation {
             return ToMat3().ToAngles();
         }
 
-//	idQuat				ToQuat( void ) const;
+        //	idQuat				ToQuat( void ) const;
         public idMat3 ToMat3() {
             float wx, wy, wz;
             float xx, yy, yz;
@@ -179,14 +182,14 @@ public class Rotation {
 //	idMat4				ToMat4( void ) const;
 
         public idVec3 ToAngularVelocity() {
-            return vec.oMultiply((float) DEG2RAD(angle));
+            return vec * ((float) DEG2RAD(angle));
         }
 
         public void RotatePoint(idVec3 point) {
             if (!axisValid) {
                 ToMat3();
             }
-            point.oSet((point.oMinus(origin)).oMultiply(axis).oPlus(origin));
+            point.oSet((point.oMinus(origin)).oMultiply(axis) + origin);
         }
 
         public void Normalize180() {
@@ -207,5 +210,7 @@ public class Rotation {
             angle = other.angle;
             axisValid = other.axisValid;
         }
-    };
+    }
+
+    ;
 }

@@ -49,7 +49,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.74 */
+/** @version 0.75 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -197,10 +197,13 @@ public class BlaPlugin implements Plugin {
                 break;
             case "JCMethodInvocation": //method params can be (a + b)
                 JCMethodInvocation methodInvocation = (JCMethodInvocation) tree;
+                methodInvocation.meth = (JCExpression) bla(methodInvocation.meth);
                 methodInvocation.args = methodInvocation.args.stream()
                         .map(BlaPlugin::bla)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
+                if (methodInvocation.meth.type != null)
+                    methodInvocation.type = methodInvocation.meth.type;
                 break;
             case "JCParens":
                 JCParens parens = (JCParens) tree;
@@ -211,9 +214,9 @@ public class BlaPlugin implements Plugin {
                         expr instanceof JCTree.JCIdent) {
                     final Name returnType;
                     if (expr instanceof OJCParens)
-                        returnType = ((OJCParens) expr).returnType;
+                        returnType = ((OJCParens) expr).getReturnType();
                     else if (expr instanceof OJCMethodInvocation)
-                        returnType = ((OJCMethodInvocation) expr).returnType;
+                        returnType = ((OJCMethodInvocation) expr).getReturnType();
                     else if (expr instanceof JCMethodInvocation) {//we need to check the return type
                         final Symbol.MethodSymbol method = getMethodSymbol((JCMethodInvocation) expr);
 
@@ -221,7 +224,7 @@ public class BlaPlugin implements Plugin {
                     } else
                         returnType = nameTypeMap.get(((JCTree.JCIdent) expr).name);
 
-                    return new OJCParens(expr, returnType);
+                    return new OJCParens(expr, returnType);//TODO let's just set the JCParens.type field instead
                 }
                 /**
                  * *return value of a method
@@ -266,9 +269,21 @@ public class BlaPlugin implements Plugin {
                 forLoop.body = (JCStatement) bla(forLoop.body);
                 break;
 
+            case "JCFieldAccess":
+                JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) tree;
+                fieldAccess.selected = (JCExpression) bla(fieldAccess.selected);
+
+                if (fieldAccess.selected instanceof ReturnTypeBla) {
+                    final Name returnTypeName = ((ReturnTypeBla) fieldAccess.selected).getReturnType();
+                    fieldAccess.type = nameClassMap.get(returnTypeName).type;
+                }
+                /**
+                 * if fieldAccess.selected has a returnType
+                 * * then create and return a new OJCFieldAccess with the same returnType
+                 */
+                break;
             case "JCIdent":
             case "JCLiteral":
-            case "JCFieldAccess":
             case "JCUnary":
             default:
                 return tree;
@@ -477,25 +492,15 @@ public class BlaPlugin implements Plugin {
                     // if type has binary.getOperator() && binary.rhs is the correct param type
                 }
             }
-        } else if (left instanceof OJCMethodInvocation) {
-            OJCMethodInvocation lhs = (OJCMethodInvocation) left;
-            if (overloadedClasses.containsKey(lhs.returnType)) {
-                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
-                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), lhs.returnType);
+        } else if (left instanceof ReturnTypeBla || left.type != null) {
+            final Name returnType = left instanceof ReturnTypeBla ? ((ReturnTypeBla) left).getReturnType() : left.type.tsym.name;
+
+            if (overloadedClasses.containsKey(returnType)) {
+                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(returnType);
+                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), returnType);
 
                 if (method != null) {
-                    final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
-                    return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
-                }
-            }
-        } else if (left instanceof OJCParens) {
-            OJCParens lhs = (OJCParens) left;
-            if (overloadedClasses.containsKey(lhs.returnType)) {
-                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
-                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), lhs.returnType);
-
-                if (method != null) {
-                    final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
+                    final OJCFieldAccess overriddenMethod = new OJCFieldAccess(left, method.methodName);
                     return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
                 }
             }
