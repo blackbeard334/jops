@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** @version 0.4 */
+/** @version 0.5 */
 public class BlaVerifier {
     private final CompilationUnitTree compilationUnit;
 
@@ -82,7 +82,6 @@ public class BlaVerifier {
         return allMethods.stream()
                 .filter(n -> methodName.equals(n.getName().toString()))
                 .filter(i -> i.getParameters().size() == 1)
-                .filter(i -> i.getParameters().get(0).vartype instanceof JCTree.JCIdent)//FIXME temp hack to avoid primitive params
                 .collect(Collectors.toMap(BlaVerifier::getParamName, i -> new BlaOverloadedClass.BlaOverloadedMethod(i.name, getParamName(i), getName(i.restype))));
     }
 

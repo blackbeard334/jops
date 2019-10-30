@@ -13,6 +13,12 @@ import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeTag;
+import com.sun.tools.javac.comp.Attr;
+import com.sun.tools.javac.comp.AttrContext;
+import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.comp.Todo;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAssignOp;
@@ -21,6 +27,7 @@ import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
 
 import javax.tools.JavaFileObject;
 import java.io.IOException;
@@ -32,7 +39,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.bla.BlaTest.BlaSimpleJavaFileObject;
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
@@ -49,7 +58,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.75 */
+/** @version 0.76 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -65,6 +74,7 @@ public class BlaPlugin implements Plugin {
 
     /** consider this an autowire. the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
     static Symtab symtab;
+    static Names  names;
 
     @Override
     public String getName() {
@@ -76,8 +86,23 @@ public class BlaPlugin implements Plugin {
         Context context = ((BasicJavacTask) task).getContext();
         Log.instance(context).printRawLines("Yow!!!!1One");
         symtab = Symtab.instance(context);
+        names = Names.instance(context);
+        //init class map
+        nameClassMap.put(symtab.byteType.tsym.name, symtab.byteType.tsym);
+        nameClassMap.put(symtab.charType.tsym.name, symtab.charType.tsym);
+        nameClassMap.put(symtab.shortType.tsym.name, symtab.shortType.tsym);
+        nameClassMap.put(symtab.longType.tsym.name, symtab.longType.tsym);
+        nameClassMap.put(symtab.floatType.tsym.name, symtab.floatType.tsym);
+        nameClassMap.put(symtab.intType.tsym.name, symtab.intType.tsym);
+        nameClassMap.put(symtab.doubleType.tsym.name, symtab.doubleType.tsym);
+        nameClassMap.put(symtab.booleanType.tsym.name, symtab.booleanType.tsym);
+//        names.    getClass
 
         MultiTaskListener.instance(context);
+
+        // MAGIC asdasdasgafg34wqtrfekjrgk
+        Todo.instance(context).forEach(todo -> Attr.instance(context).attrib(todo));
+
         task.addTaskListener(new TaskListener() {
             @Override
             public void started(TaskEvent e) {
@@ -125,6 +150,14 @@ public class BlaPlugin implements Plugin {
                     }
 
                     case ENTER:/*the dragon*/ {
+//                        final Lower lower = Lower.instance(context);
+                        final Todo todos = Todo.instance(context);
+                        for (Env<AttrContext> todo : todos) {
+                            Attr.instance(context).attrib(todo);
+//                            Attr.instance(context).postAttr(todo.toplevel);
+//                            final com.sun.tools.javac.util.List<JCTree> translate = lower.translateTopLevelClass(todo, todo.toplevel, TreeMaker.instance(context));
+                            int a = 0;
+                        }
                         loadClassFiles(e);
                         if (!hasOverloadedClassesImported(e.getCompilationUnit())) {
                             return;//TODO add some kind of extra check for same package classes taht don't require an import
@@ -148,6 +181,11 @@ public class BlaPlugin implements Plugin {
                                 .map(JCTree.JCFieldAccess.class::cast)
                                 .filter(i -> isOverloadedType(i.name))
                                 .forEach(i -> nameTypeMap.put(i.name, i.type.tsym.name)); //TODO init list with imports, and figure out how to reach da root elementz
+                        compilationUnit.getImports().stream()
+                                .filter(i -> !i.isStatic())
+                                .map(ImportTree::getQualifiedIdentifier)
+                                .map(JCTree.JCFieldAccess.class::cast)
+                                .forEach(i -> nameClassMap.put(i.name, i.type.tsym));
                         final List<? extends Tree> typeDecls = compilationUnit.getTypeDecls();
                         typeDecls.forEach(BlaPlugin::bla);
 
@@ -202,30 +240,57 @@ public class BlaPlugin implements Plugin {
                         .map(BlaPlugin::bla)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
-                if (methodInvocation.meth.type != null)
-                    methodInvocation.type = methodInvocation.meth.type;
+//                final JCExpression meth = methodInvocation.meth;
+//                if (meth.type != null)
+//                    methodInvocation.type = meth.type;
+//
+//                if (meth instanceof JCTree.JCFieldAccess) {
+//                    final Name selectedName = getExpressionTypeName(((JCTree.JCFieldAccess) meth).selected);
+//                    final Symbol clazz;
+//                    if (nameClassMap.containsKey(selectedName)) {//static method
+//                        clazz = nameClassMap.get(selectedName);
+//                    } else {//if (nameTypeMap.containsKey(selectedName)) {
+//                        clazz = nameClassMap.get(nameTypeMap.get(selectedName));
+//                    }
+//                    final Name methodName = ((JCTree.JCFieldAccess) meth).name;
+//                    final Symbol[] args = methodInvocation.args.stream()
+//                            .map(t -> t.type)
+//                            .filter(Objects::nonNull)//TODO this shouldn't happen once all the types are set properly
+//                            .map(Type::asElement)
+//                            .toArray(Symbol[]::new);
+//                    final Symbol.MethodSymbol methodSymbol = getMethodSymbol(clazz, methodName, args);
+//                    methodInvocation.type = methodSymbol.getReturnType();
+//                }
+//                if (methodInvocation.type == null && nameTypeMap.containsKey(methodInvocation.meth().name)) {
+//                    final Name name = nameTypeMap.get(methodInvocation.selected.name);
+//                    final Symbol symbol = nameClassMap.get(name);
+//                    final Symbol.MethodSymbol methodSymbol = getMethodSymbol(symbol, methodInvocation.meth.name, methodInvocation.args);
+//                    methodInvocation.type = methodSymbol.getReturnType();
+//                }
                 break;
             case "JCParens":
                 JCParens parens = (JCParens) tree;
                 parens.expr = (JCExpression) bla(parens.expr);
                 JCExpression expr = parens.expr;
                 if (expr instanceof OJCParens ||
-                        expr instanceof JCMethodInvocation ||
-                        expr instanceof JCTree.JCIdent) {
-                    final Name returnType;
-                    if (expr instanceof OJCParens)
-                        returnType = ((OJCParens) expr).getReturnType();
-                    else if (expr instanceof OJCMethodInvocation)
-                        returnType = ((OJCMethodInvocation) expr).getReturnType();
-                    else if (expr instanceof JCMethodInvocation) {//we need to check the return type
-                        final Symbol.MethodSymbol method = getMethodSymbol((JCMethodInvocation) expr);
+                        expr instanceof OJCMethodInvocation ||
+                        expr instanceof OJCFieldAccess) {
+//                    final Name returnType;
+//                    if (expr instanceof OJCParens)
+//                        returnType = ((OJCParens) expr).getReturnType();
+//                    else if (expr instanceof OJCMethodInvocation)
+//                        returnType = ((OJCMethodInvocation) expr).getReturnType();
+//                    else if (expr instanceof JCMethodInvocation) {//we need to check the return type
+//                        final Symbol.MethodSymbol method = getMethodSymbol((JCMethodInvocation) expr);
+//
+//                        returnType = method.getReturnType().tsym.getSimpleName();
+//                    } else
+//                        returnType = nameTypeMap.get(((JCTree.JCIdent) expr).name);
 
-                        returnType = method.getReturnType().tsym.getSimpleName();
-                    } else
-                        returnType = nameTypeMap.get(((JCTree.JCIdent) expr).name);
-
-                    return new OJCParens(expr, returnType);//TODO let's just set the JCParens.type field instead
+                    return new OJCParens(expr, parens.type);//, nameClassMap.get(returnType).type);//TODO let's just set the JCParens.type field instead
                 }
+//                if (expr.type != null)
+//                    parens.type = expr.type;
                 /**
                  * *return value of a method
                  * *overloaded method
@@ -273,16 +338,50 @@ public class BlaPlugin implements Plugin {
                 JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) tree;
                 fieldAccess.selected = (JCExpression) bla(fieldAccess.selected);
 
-                if (fieldAccess.selected instanceof ReturnTypeBla) {
-                    final Name returnTypeName = ((ReturnTypeBla) fieldAccess.selected).getReturnType();
-                    fieldAccess.type = nameClassMap.get(returnTypeName).type;
-                }
+//                if (fieldAccess.selected instanceof ReturnTypeBla) {
+//                    final Name returnTypeName = ((ReturnTypeBla) fieldAccess.selected).getReturnType();
+//                    fieldAccess.type = nameClassMap.get(returnTypeName).type;
+//                }
+//                if (fieldAccess.type == null) {
+//                    final Optional<Symbol.VarSymbol> varSymbol = getVarSymbol(fieldAccess.selected.type.tsym, fieldAccess.name);
+//                    varSymbol.ifPresent(symbol -> fieldAccess.type = symbol.type);//methods types should be assigned in JCMethodInvoke
+//                }
+                //TODO should a fieldaccess propagate upwards towards the methodinvoke?
                 /**
                  * if fieldAccess.selected has a returnType
                  * * then create and return a new OJCFieldAccess with the same returnType
                  */
                 break;
+            case "JCTypeCast":
+                JCTree.JCTypeCast typeCast = (JCTree.JCTypeCast) tree;
+                typeCast.expr = (JCExpression) bla(typeCast.expr);
+//                if (typeCast.clazz instanceof JCTree.JCIdent)//TODO we can cast to null
+//                    typeCast.type = nameClassMap.get(((JCTree.JCIdent) typeCast.clazz).getName()).type;
+//                if (typeCast.clazz instanceof JCTree.JCPrimitiveTypeTree)
+//                    typeCast.type = nameClassMap.get(BlaVerifier.getPrimitiveType((JCTree.JCPrimitiveTypeTree) typeCast.clazz)).type;
+                break;
             case "JCIdent":
+//                JCTree.JCIdent jcIdent = (JCTree.JCIdent) tree;
+//                final Symbol symbol = nameClassMap.get(nameTypeMap.get(jcIdent.getName()));
+//                if (symbol != null)
+//                    jcIdent.type = symbol.type;
+//                else
+//                    jcIdent.type = nameClassMap.get(jcIdent.getName()).type;
+                break;
+            case "JCArrayAccess":
+                JCTree.JCArrayAccess arrayAccess = (JCTree.JCArrayAccess) tree;
+                arrayAccess.indexed = (JCExpression) bla(arrayAccess.indexed);
+                arrayAccess.index = (JCExpression) bla(arrayAccess.index);//TODO should we check this? always int..right?
+//                arrayAccess.type = arrayAccess.getExpression().type;
+                if (arrayAccess.indexed instanceof JCTree.JCFieldAccess) {
+                    final Symbol.TypeSymbol clazz = ((JCTree.JCFieldAccess) arrayAccess.indexed).selected.type.tsym;
+                    final Name name = ((JCTree.JCFieldAccess) arrayAccess.indexed).name;
+//                    arrayAccess.type = getVarSymbol(clazz, name).get().type;
+//                    if (arrayAccess.type instanceof Type.ArrayType) {
+//                        arrayAccess.type = getArrayType(arrayAccess.type);
+//                    }
+                }
+                break;
             case "JCLiteral":
             case "JCUnary":
             default:
@@ -310,14 +409,30 @@ public class BlaPlugin implements Plugin {
         final Symbol argSymbol = nameClassMap.get(argType);
 
         //TODO get method return type from symbol
-        return selectedSymbol.getEnclosedElements().stream()//TODO cache results
+        return getMethodSymbol(selectedSymbol, methName, argSymbol);
+    }
+
+    private static Symbol.MethodSymbol getMethodSymbol(final Symbol clazz, final Name methName, final Symbol... argSymbol) {
+        return clazz.getEnclosedElements().stream()//TODO cache results
                 .filter(Symbol.MethodSymbol.class::isInstance)
                 .map(Symbol.MethodSymbol.class::cast)
                 .filter(m -> m.getSimpleName().equals(methName))
-                .filter(m -> m.getParameters().size() == 1)//we assume a single param here
-                .filter(m -> m.getParameters().stream().anyMatch(p -> p.type.tsym.equals(argSymbol)))
+                .filter(m -> m.getParameters().size() == argSymbol.length)
+                .filter(m -> List.of(argSymbol).containsAll(
+                        m.getParameters().stream()
+                                .map(Symbol::asType)
+                                .map(Type::asElement)
+                                .collect(Collectors.toList())))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static Optional<Symbol.VarSymbol> getVarSymbol(final Symbol clazz, final Name varName) {
+        return clazz.getEnclosedElements().stream()//TODO cache results
+                .filter(Symbol.VarSymbol.class::isInstance)
+                .map(Symbol.VarSymbol.class::cast)
+                .filter(m -> m.getSimpleName().equals(varName))
+                .findFirst();
     }
 
     private static Name getTypeName(JCVariableDecl variableDecl) {
@@ -332,9 +447,26 @@ public class BlaPlugin implements Plugin {
             return ident.getName();
         }
         if (type instanceof JCTree.JCArrayTypeTree) {
-            return symtab.arraysType.tsym.name;
+            return getArrayType((JCTree.JCArrayTypeTree) type);
         }
         return ((JCExpression) type).type.tsym.getSimpleName();
+    }
+
+    private static Name getArrayType(JCTree.JCArrayTypeTree type) {
+        if (type.elemtype instanceof JCTree.JCArrayTypeTree) {//multi-dimensional arrays
+            return getArrayType((JCTree.JCArrayTypeTree) type.elemtype);
+        }
+        if (type.elemtype instanceof JCTree.JCIdent) {
+            return ((JCTree.JCIdent) type.elemtype).name;
+        }
+        return BlaVerifier.getPrimitiveType((JCTree.JCPrimitiveTypeTree) type.elemtype);
+    }
+
+    private static Type getArrayType(Type type) {
+        if (type instanceof Type.ArrayType) {
+            return getArrayType(((Type.ArrayType) type).elemtype);
+        }
+        return type;
     }
 
     private static boolean isOverloadedType(Name name) {//TODO rename
@@ -478,33 +610,74 @@ public class BlaPlugin implements Plugin {
         final JCExpression left = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.LEFT);
         final JCExpression right = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.RIGHT);
         if (left instanceof JCTree.JCIdent) {
-            JCTree.JCIdent lhs = (JCTree.JCIdent) left;
-            if (nameTypeMap.containsKey(lhs.getName())) {
-                final Name type = nameTypeMap.get(lhs.getName());
+            final Name type = getExpressionTypeName(left);
+            if (type != null) {
                 final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type);
                 if (overloadedClass != null) {
-                    final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), type);
+                    final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), getExpressionTypeName(right));
                     if (method != null) {
                         // return new method invoke
-                        final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
-                        return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
+                        final OJCFieldAccess overriddenMethod = new OJCFieldAccess(left, method.methodName);
+                        final Symbol returnSymbol = nameClassMap.get(method.returnType);
+                        return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), returnSymbol.type);
                     }
                     // if type has binary.getOperator() && binary.rhs is the correct param type
                 }
             }
-        } else if (left instanceof ReturnTypeBla || left.type != null) {
-            final Name returnType = left instanceof ReturnTypeBla ? ((ReturnTypeBla) left).getReturnType() : left.type.tsym.name;
+        } else if (/*left instanceof ReturnTypeBla ||*/ left.type != null) {
+            final Name returnType = getExpressionTypeName(left);
 
             if (overloadedClasses.containsKey(returnType)) {
                 final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(returnType);
-                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), returnType);
+                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), getExpressionTypeName(right));
 
                 if (method != null) {
                     final OJCFieldAccess overriddenMethod = new OJCFieldAccess(left, method.methodName);
-                    return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
+                    final Symbol returnSymbol = nameClassMap.get(method.returnType);
+                    return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), returnSymbol.type);
                 }
             }
         }
+
+//        if (expression.type == null && left.type instanceof Type.JCPrimitiveType && right.type instanceof Type.JCPrimitiveType) {
+//            final TypeTag lt = left.type.getTag();
+//            final TypeTag rt = right.type.getTag();
+//            if (lt == TypeTag.BYTE || rt == TypeTag.BYTE)
+//                expression.type = BlaPlugin.symtab.byteType;
+//            if (lt == TypeTag.SHORT || rt == TypeTag.SHORT)
+//                expression.type = BlaPlugin.symtab.shortType;
+//            if (lt == TypeTag.INT || rt == TypeTag.INT)
+//                expression.type = BlaPlugin.symtab.intType;
+//            if (lt == TypeTag.LONG || rt == TypeTag.LONG)
+//                expression.type = BlaPlugin.symtab.floatType;
+//            if (lt == TypeTag.FLOAT || rt == TypeTag.FLOAT)
+//                expression.type = BlaPlugin.symtab.floatType;
+//            if (lt == TypeTag.DOUBLE || rt == TypeTag.DOUBLE)
+//                expression.type = BlaPlugin.symtab.doubleType;
+//        }
         return expression;
+    }
+
+    private static Name getExpressionTypeName(JCExpression expression) {
+        if (expression instanceof JCTree.JCLiteral) {
+            if (((JCTree.JCLiteral) expression).typetag == TypeTag.BOT) {
+                return symtab.botType.tsym.name;
+            }
+            return null;
+        }
+        if (expression instanceof JCTree.JCIdent) {
+            final Name name = ((JCTree.JCIdent) expression).getName();
+            if (nameTypeMap.containsKey(name)) {
+                return nameTypeMap.get(name);
+            }
+            if (nameClassMap.containsKey(name)) {
+                return name;
+            }
+            return null;
+        }
+//        if (expression instanceof ReturnTypeBla)
+//            return ((ReturnTypeBla) expression).getReturnType();
+//        else
+        return expression.type.tsym.name;
     }
 }
