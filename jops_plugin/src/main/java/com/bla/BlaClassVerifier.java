@@ -38,6 +38,6 @@ public class BlaClassVerifier {
         return allMethods.stream()
                 .filter(n -> methodName.equals(n.getSimpleName().toString()))
                 .filter(i -> i.getParameters().size() == 1)
-                .collect(Collectors.toMap(i -> i.params.get(0).type.tsym.name, i -> new BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod(i.name, i.params.get(0).type.tsym.name, i.getReturnType().tsym.name)));
+                .collect(Collectors.toMap(i -> i.params.get(0).type.tsym.name, i -> new BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod(i.name, null, i)));
     }
 }

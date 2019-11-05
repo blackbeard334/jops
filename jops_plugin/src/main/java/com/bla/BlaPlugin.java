@@ -13,6 +13,11 @@ import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.comp.Attr;
+import com.sun.tools.javac.comp.AttrContext;
+import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.comp.Todo;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAssignOp;
@@ -49,7 +54,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.74 */
+/** @version 0.77 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -109,6 +114,8 @@ public class BlaPlugin implements Plugin {
                 Log.instance(context).printRawLines(sourceFile.getName());
             }
 
+            private boolean todosInit = true;
+
             @Override
             public void finished(TaskEvent e) {
                 switch (e.getKind()) {
@@ -125,6 +132,9 @@ public class BlaPlugin implements Plugin {
                     }
 
                     case ENTER:/*the dragon*/ {
+                        if (todosInit) {
+                            todos();
+                        }
                         loadClassFiles(e);
                         if (!hasOverloadedClassesImported(e.getCompilationUnit())) {
                             return;//TODO add some kind of extra check for same package classes taht don't require an import
@@ -158,6 +168,35 @@ public class BlaPlugin implements Plugin {
                         break;//skip
                 }
             }
+
+            private void todos() {
+                Field MaxErrors = null;
+                try {
+                    final Todo todos = Todo.instance(context);
+                    final Log log = Log.instance(context);
+
+                    MaxErrors = log.getClass().getDeclaredField("MaxErrors");
+                    MaxErrors.setAccessible(true);
+                    final int prevMaxErrors = MaxErrors.getInt(log);
+
+                    //temp disable logging
+                    MaxErrors.set(log, 0);
+
+                    for (Env<AttrContext> todo : todos) {
+                        Attr.instance(context).attrib(todo);
+                        int a = 0;
+                    }
+
+                    //re-enable error logging
+                    MaxErrors.set(log, prevMaxErrors);
+                } catch (NoSuchFieldException | IllegalAccessException ex) {
+                    ex.printStackTrace();
+                } finally {
+                    if (MaxErrors != null)
+                        MaxErrors.setAccessible(false);
+                    todosInit = false;
+                }
+            }
         });
     }
 
@@ -176,13 +215,13 @@ public class BlaPlugin implements Plugin {
                 JCVariableDecl variableDecl = (JCVariableDecl) tree;
                 //names can be reused across different classes, so remove it just in case
                 nameTypeMap.remove(variableDecl.getName()); //TODO maybe we should push/pop this just in case some class with a variable 'm' calls an external class with a reused name? is that even possible...
-                nameTypeMap.put(variableDecl.getName(), getTypeName(variableDecl));
+                nameTypeMap.put(variableDecl.getName(), getReturnTypeName(variableDecl));
                 variableDecl.init = (JCExpression) bla(variableDecl.init);
                 break;
             case "JCMethodDecl":
                 JCMethodDecl methodDecl = (JCMethodDecl) tree;
                 methodDecl.getParameters()
-                        .forEach(p -> nameTypeMap.put(p.getName(), getTypeName(p)));
+                        .forEach(p -> nameTypeMap.put(p.getName(), getReturnTypeName(p)));
                 methodDecl.body = (JCBlock) bla(methodDecl.body);
                 break;
             case "JCBinary": //TODO check opcodes and types
@@ -201,6 +240,18 @@ public class BlaPlugin implements Plugin {
                         .map(BlaPlugin::bla)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
+                /**
+                 * methodInvocation.meth instanceof
+                 * JCIdent if static import or called with this.bla()
+                 * JCFieldAccess otherwise
+                 */
+                if (methodInvocation.type == null || methodInvocation.meth.type == null) {
+                    if (methodInvocation.meth instanceof JCTree.JCFieldAccess)
+                        methodInvocation.type = methodInvocation.meth.type = ((JCTree.JCFieldAccess) methodInvocation.meth).sym.type;
+                    else
+                        methodInvocation.type = methodInvocation.meth.type = ((JCTree.JCIdent) methodInvocation.meth).sym.type;
+                }
+//                methodInvocation.meth = (JCExpression) bla(methodInvocation.meth);
                 break;
             case "JCParens":
                 JCParens parens = (JCParens) tree;
@@ -217,7 +268,7 @@ public class BlaPlugin implements Plugin {
                     else if (expr instanceof JCMethodInvocation) {//we need to check the return type
                         final Symbol.MethodSymbol method = getMethodSymbol((JCMethodInvocation) expr);
 
-                        returnType = method.getReturnType().tsym.getSimpleName();
+                        returnType = getReturnTypeName(method.getReturnType());
                     } else
                         returnType = nameTypeMap.get(((JCTree.JCIdent) expr).name);
 
@@ -305,7 +356,7 @@ public class BlaPlugin implements Plugin {
                 .orElseThrow();
     }
 
-    private static Name getTypeName(JCVariableDecl variableDecl) {
+    private static Name getReturnTypeName(JCVariableDecl variableDecl) {
         final JCTree type = variableDecl.getType();
         if (type instanceof JCTree.JCPrimitiveTypeTree) {
             return BlaVerifier.getPrimitiveType((JCTree.JCPrimitiveTypeTree) type);
@@ -319,7 +370,7 @@ public class BlaPlugin implements Plugin {
         if (type instanceof JCTree.JCArrayTypeTree) {
             return symtab.arraysType.tsym.name;
         }
-        return ((JCExpression) type).type.tsym.getSimpleName();
+        return getReturnTypeName(((JCExpression) type).type);
     }
 
     private static boolean isOverloadedType(Name name) {//TODO rename
@@ -462,44 +513,24 @@ public class BlaPlugin implements Plugin {
     private static Tree parseOperatorExpression(JCTree.JCOperatorExpression expression) {
         final JCExpression left = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.LEFT);
         final JCExpression right = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.RIGHT);
-        if (left instanceof JCTree.JCIdent) {
-            JCTree.JCIdent lhs = (JCTree.JCIdent) left;
-            if (nameTypeMap.containsKey(lhs.getName())) {
-                final Name type = nameTypeMap.get(lhs.getName());
-                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(type);
-                if (overloadedClass != null) {
-                    final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), type);
-                    if (method != null) {
-                        // return new method invoke
-                        final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
-                        return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
-                    }
-                    // if type has binary.getOperator() && binary.rhs is the correct param type
-                }
-            }
-        } else if (left instanceof OJCMethodInvocation) {
-            OJCMethodInvocation lhs = (OJCMethodInvocation) left;
-            if (overloadedClasses.containsKey(lhs.returnType)) {
-                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
-                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), lhs.returnType);
 
-                if (method != null) {
-                    final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
-                    return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
-                }
+        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(getReturnTypeName(left.type));
+        if (overloadedClass != null) {
+            final Name paramType = getReturnTypeName(right.type);
+            final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), paramType);
+            if (method != null) {
+                // return new method invoke
+                final OJCFieldAccess overriddenMethod = new OJCFieldAccess(left, method.methodName, method.getSym());
+                return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right));
             }
-        } else if (left instanceof OJCParens) {
-            OJCParens lhs = (OJCParens) left;
-            if (overloadedClasses.containsKey(lhs.returnType)) {
-                final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(lhs.returnType);
-                final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), lhs.returnType);
-
-                if (method != null) {
-                    final OJCFieldAccess overriddenMethod = new OJCFieldAccess(lhs, method.methodName);
-                    return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right), method.returnType);
-                }
-            }
+            // if type has binary.getOperator() && binary.rhs is the correct param type
         }
         return expression;
+    }
+
+    private static Name getReturnTypeName(Type type) {
+        if (type instanceof Type.MethodType)
+            return type.getReturnType().tsym.name;
+        return type.tsym.getSimpleName();
     }
 }

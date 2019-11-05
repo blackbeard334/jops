@@ -5,9 +5,12 @@ import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 
 class OJCMethodInvocation extends JCTree.JCMethodInvocation {
+    @Deprecated
     final Name returnType;
-    protected OJCMethodInvocation(List<JCExpression> typeargs, JCExpression meth, List<JCExpression> args, Name returnType) {
+
+    protected OJCMethodInvocation(List<JCExpression> typeargs, JCExpression meth, List<JCExpression> args) {
         super(typeargs, meth, args);
-        this.returnType = returnType;
+        this.type = meth.type.getReturnType();
+        returnType = this.type.tsym.name;
     }
 }

@@ -4,6 +4,7 @@ import com.bla.annotation.OperatorOverloading;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -15,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** @version 0.4 */
+/** @version 0.5 */
 public class BlaVerifier {
     private final CompilationUnitTree compilationUnit;
 
@@ -82,8 +83,7 @@ public class BlaVerifier {
         return allMethods.stream()
                 .filter(n -> methodName.equals(n.getName().toString()))
                 .filter(i -> i.getParameters().size() == 1)
-                .filter(i -> i.getParameters().get(0).vartype instanceof JCTree.JCIdent)//FIXME temp hack to avoid primitive params
-                .collect(Collectors.toMap(BlaVerifier::getParamName, i -> new BlaOverloadedClass.BlaOverloadedMethod(i.name, getParamName(i), getName(i.restype))));
+                .collect(Collectors.toMap(BlaVerifier::getParamName, i -> new BlaOverloadedClass.BlaOverloadedMethod(i.name, i, i.sym)));
     }
 
     private static Name getParamName(JCMethodDecl decl) {
@@ -213,14 +213,22 @@ public class BlaVerifier {
         }
 
         static class BlaOverloadedMethod {
-            final Name methodName;
-            final Name paramType;
-            final Name returnType;
+            final Name                methodName;
+            final JCMethodDecl        meth;
+            final Symbol.MethodSymbol sym;
 
-            BlaOverloadedMethod(Name methodName, Name paramType, Name returnType) {
+            BlaOverloadedMethod(Name methodName, JCMethodDecl meth, Symbol.MethodSymbol sym) {
                 this.methodName = methodName;
-                this.paramType = paramType;
-                this.returnType = returnType;
+                this.meth = meth;
+                this.sym = sym;
+            }
+
+            public Symbol.MethodSymbol getSym() {
+                /*
+                classes don't have a meth field, but they have a sym
+                so we set both
+                */
+                return sym == null ? meth.sym : sym;
             }
         }
     }
