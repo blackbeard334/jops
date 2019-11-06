@@ -446,7 +446,7 @@ public class Angles {
 
         public idVec3 ToAngularVelocity() {
             idRotation rotation = this.ToRotation();
-            return rotation.GetVec().oMultiply((float) Math_h.DEG2RAD(rotation.GetAngle()));
+            return rotation.GetVec() * ((float) Math_h.DEG2RAD(rotation.GetAngle()));
         }
 
         public float[] ToFloatPtr() {

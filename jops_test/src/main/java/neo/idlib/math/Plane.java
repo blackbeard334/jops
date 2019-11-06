@@ -13,32 +13,32 @@ import java.util.stream.Stream;
  */
 public class Plane {
 
-    public static final float ON_EPSILON = 0.1f;
-    public static final float DEGENERATE_DIST_EPSILON = 1e-4f;
+    public static final  float ON_EPSILON              = 0.1f;
+    public static final  float DEGENERATE_DIST_EPSILON = 1e-4f;
     //                                                    
-    public static final int SIDE_FRONT = 0;
-    public static final int SIDE_BACK = 1;
-    public static final int SIDE_ON = 2;
-    public static final int SIDE_CROSS = 3;
+    public static final  int   SIDE_FRONT              = 0;
+    public static final  int   SIDE_BACK               = 1;
+    public static final  int   SIDE_ON                 = 2;
+    public static final  int   SIDE_CROSS              = 3;
     //                                                    
     // plane sides                                      
-    public static final int PLANESIDE_FRONT = 0;
-    public static final int PLANESIDE_BACK = 1;
-    private static final int PLANESIDE_ON = 2;
-    public static final int PLANESIDE_CROSS = 3;
+    public static final  int   PLANESIDE_FRONT         = 0;
+    public static final  int   PLANESIDE_BACK          = 1;
+    private static final int   PLANESIDE_ON            = 2;
+    public static final  int   PLANESIDE_CROSS         = 3;
     // plane types                                            
-    private static final int PLANETYPE_X = 0;
-    private static final int PLANETYPE_Y = 1;
-    private static final int PLANETYPE_Z = 2;
-    public static final int PLANETYPE_NEGX = 3;
-    private static final int PLANETYPE_NEGY = 4;
-    private static final int PLANETYPE_NEGZ = 5;
-    public static final int PLANETYPE_TRUEAXIAL = 6;
+    private static final int   PLANETYPE_X             = 0;
+    private static final int   PLANETYPE_Y             = 1;
+    private static final int   PLANETYPE_Z             = 2;
+    public static final  int   PLANETYPE_NEGX          = 3;
+    private static final int   PLANETYPE_NEGY          = 4;
+    private static final int   PLANETYPE_NEGZ          = 5;
+    public static final  int   PLANETYPE_TRUEAXIAL     = 6;
     // all types < 6 are true axial planes
-    private static final int PLANETYPE_ZEROX = 6;
-    private static final int PLANETYPE_ZEROY = 7;
-    private static final int PLANETYPE_ZEROZ = 8;
-    private static final int PLANETYPE_NONAXIAL = 9;
+    private static final int   PLANETYPE_ZEROX         = 6;
+    private static final int   PLANETYPE_ZEROY         = 7;
+    private static final int   PLANETYPE_ZEROZ         = 8;
+    private static final int   PLANETYPE_NONAXIAL      = 9;
 
     /*
      ===============================================================================
@@ -51,7 +51,7 @@ public class Plane {
         public static final int BYTES = idVec3.BYTES + Float.BYTES;
 
         private final idVec3 abc = new idVec3();
-        private float d;
+        private       float  d;
 
         //
         //
@@ -173,7 +173,7 @@ public class Plane {
             d = 0;
             return this;
         }
-        
+
         public idPlane oSet(final idPlane p) {
             abc.oSet(p.abc);
             this.d = p.d;
@@ -583,7 +583,7 @@ public class Plane {
 
             dir.oSet(Normal().Cross(plane.Normal()));
 //            start = f0 * Normal() + f1 * plane.Normal();
-            start.oSet(Normal().oMultiply(f0).oPlus(plane.Normal().oMultiply(f1)));
+            start.oSet(Normal() * (f0) + plane.Normal() * (f1));
             return true;
         }
 
@@ -616,7 +616,7 @@ public class Plane {
             return new float[]{abc.x, abc.y, abc.z, d};
         }
 //public	float *			ToFloatPtr( void );
-        
+
         public static idPlane[] generateArray(final int length) {
             return Stream.
                     generate(idPlane::new).
@@ -632,5 +632,7 @@ public class Plane {
                     + ", c=" + abc.z
                     + ", d=" + d + "}";
         }
-    };
+    }
+
+    ;
 }
