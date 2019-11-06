@@ -54,7 +54,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.77 */
+/** @version 0.77.1 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -302,6 +302,7 @@ public class BlaPlugin implements Plugin {
                 JCIf jcIf = (JCIf) tree;
                 jcIf.cond = (JCExpression) bla(jcIf.cond);
                 jcIf.thenpart = (JCStatement) bla(jcIf.thenpart);
+                jcIf.elsepart = (JCStatement) bla(jcIf.elsepart);
                 break;
             case "JCForLoop":
                 JCForLoop forLoop = (JCForLoop) tree;
