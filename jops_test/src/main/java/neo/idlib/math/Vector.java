@@ -451,7 +451,7 @@ public class Vector {
         }
 
         //public	idVec3			operator/( final  float a ) final ;
-        public idVec3 oDivide(final float a) {
+        public idVec3 operator/(final float a) {
             float inva = 1.0f / a;
             return new idVec3(x * inva, y * inva, z * inva);
         }

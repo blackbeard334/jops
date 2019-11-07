@@ -5,6 +5,7 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -16,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** @version 0.5 */
+/** @version 0.5.1 */
 public class BlaVerifier {
     private final CompilationUnitTree compilationUnit;
 
@@ -189,7 +190,7 @@ public class BlaVerifier {
             return name;
         }
 
-        BlaOverloadedMethod getMethod(final JCTree.Tag opcode, Name paramType) {
+        BlaOverloadedMethod getMethod(final JCTree.Tag opcode, final Name paramType) {
             switch (opcode) {
                 case PLUS:
                     return plus.get(paramType);
@@ -210,6 +211,45 @@ public class BlaVerifier {
                 default:
                     return null;
             }
+        }
+
+        BlaOverloadedMethod getMethodPolyEdition(final JCTree.Tag opcode, final Type type) {
+            if (getMethod(opcode, type.tsym.name) != null)
+                return getMethod(opcode, type.tsym.name);
+//            if (type instanceof Type.ClassType) {
+//                Type.ClassType classType = (Type.ClassType) type;
+//                Name paramType = classType.tsym.name;
+//                while (getMethod(opcode, paramType) == null) {
+//                    if (classType.supertype_field == BlaPlugin.symtab.objectType) {
+//                        return null;
+//                    }
+//                    paramType = classType.tsym.name;
+//                    classType = (Type.ClassType) classType.supertype_field;
+//                }
+//                return getMethod(opcode, paramType);
+//            }
+            if (type instanceof Type.JCPrimitiveType) {
+                //https://docs.oracle.com/javase/specs/jls/se10/html/jls-5.html#jls-5.1.2
+                switch (type.getTag()) {
+                    case CHAR:
+                        return getMethodPolyEdition(opcode, BlaPlugin.symtab.intType);
+                    case BYTE:
+                        return getMethodPolyEdition(opcode, BlaPlugin.symtab.shortType);
+                    case SHORT:
+                        return getMethodPolyEdition(opcode, BlaPlugin.symtab.intType);
+                    case INT:
+                        return getMethodPolyEdition(opcode, BlaPlugin.symtab.longType);
+                    case LONG:
+                        return getMethodPolyEdition(opcode, BlaPlugin.symtab.floatType);
+                    case FLOAT:
+                        return getMethodPolyEdition(opcode, BlaPlugin.symtab.doubleType);
+                    case DOUBLE:
+                    default:
+                        return null;
+                }
+            }
+
+            return null;
         }
 
         static class BlaOverloadedMethod {

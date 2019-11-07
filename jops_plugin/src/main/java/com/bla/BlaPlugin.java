@@ -548,8 +548,8 @@ public class BlaPlugin implements Plugin {
 
         final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(getReturnTypeName(left.type));
         if (overloadedClass != null) {
-            final Name paramType = getReturnTypeName(right.type);
-            final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethod(expression.getTag(), paramType);
+            final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethodPolyEdition(expression.getTag(), right.type);
+
             if (method != null) {
                 // return new method invoke
                 final OJCFieldAccess overriddenMethod = new OJCFieldAccess(left, method.methodName, method.getSym());

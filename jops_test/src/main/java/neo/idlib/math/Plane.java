@@ -462,7 +462,7 @@ public class Plane {
             for (i = 0; i < numPoints; i++) {
                 sum.oPluSet(points[i]);
             }
-            average.oSet(sum.oDivide(numPoints));
+            average.oSet(sum / numPoints);
 
             for (i = 0; i < numPoints; i++) {
                 dir = points[i] - average;
