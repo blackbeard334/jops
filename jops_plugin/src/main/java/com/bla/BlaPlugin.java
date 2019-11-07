@@ -11,6 +11,7 @@ import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
@@ -54,7 +55,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.77.1 */
+/** @version 0.77.2 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -133,7 +134,7 @@ public class BlaPlugin implements Plugin {
 
                     case ENTER:/*the dragon*/ {
                         if (todosInit) {
-                            todos();
+                            todosInit();
                         }
                         loadClassFiles(e);
                         if (!hasOverloadedClassesImported(e.getCompilationUnit())) {
@@ -169,7 +170,7 @@ public class BlaPlugin implements Plugin {
                 }
             }
 
-            private void todos() {
+            private void todosInit() {
                 Field MaxErrors = null;
                 try {
                     final Todo todos = Todo.instance(context);
@@ -240,16 +241,22 @@ public class BlaPlugin implements Plugin {
                         .map(BlaPlugin::bla)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
+                methodInvocation.meth = (JCExpression) bla(methodInvocation.meth);
                 /**
                  * methodInvocation.meth instanceof
                  * JCIdent if static import or called with this.bla()
                  * JCFieldAccess otherwise
                  */
-                if (methodInvocation.type == null || methodInvocation.meth.type == null) {
-                    if (methodInvocation.meth instanceof JCTree.JCFieldAccess)
-                        methodInvocation.type = methodInvocation.meth.type = ((JCTree.JCFieldAccess) methodInvocation.meth).sym.type;
-                    else
-                        methodInvocation.type = methodInvocation.meth.type = ((JCTree.JCIdent) methodInvocation.meth).sym.type;
+                if (!(methodInvocation.type instanceof Type.MethodType)) {
+                    JCExpression meth = methodInvocation.meth;
+                    if (meth instanceof JCTree.JCFieldAccess) {
+                        setMethodSymbolIfERR(methodInvocation, (JCTree.JCFieldAccess) meth);
+                        methodInvocation.type = ((JCTree.JCFieldAccess) meth).sym.type.getReturnType();
+                        meth.type = ((JCTree.JCFieldAccess) meth).sym.type;
+                    } else {
+                        methodInvocation.type = ((JCTree.JCIdent) meth).sym.type.getReturnType();
+                        meth.type = ((JCTree.JCIdent) meth).sym.type;
+                    }
                 }
 //                methodInvocation.meth = (JCExpression) bla(methodInvocation.meth);
                 break;
@@ -318,15 +325,39 @@ public class BlaPlugin implements Plugin {
                 forLoop.body = (JCStatement) bla(forLoop.body);
                 break;
 
+            case "JCFieldAccess":
+                JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) tree;
+                fieldAccess.selected = (JCExpression) bla(fieldAccess.selected);
+                if (fieldAccess.selected instanceof JCMethodInvocation && fieldAccess.sym.type instanceof Type.MethodType) {
+                    fieldAccess.type = fieldAccess.sym.type.getReturnType();
+                }
+                break;
             case "JCIdent":
             case "JCLiteral":
-            case "JCFieldAccess":
             case "JCUnary":
             default:
                 return tree;
         }
 
         return tree;
+    }
+
+    private static void setMethodSymbolIfERR(JCMethodInvocation methodInvocation, JCTree.JCFieldAccess meth) {
+        //lookup the method and set the symbol
+        //problem is if it's an overloaded method, then we need the args which aren't available here
+        if (meth.sym.kind == Kinds.Kind.ERR) {
+            final Type selectedType = meth.selected.type;
+            meth.sym = selectedType.tsym.getEnclosedElements().stream()
+                    .filter(Symbol.MethodSymbol.class::isInstance)
+                    .filter(sym -> sym.name.equals(meth.name))
+                    .filter(sym -> ((Type.MethodType) sym.type).argtypes.size() == methodInvocation.args.size())
+                    .filter(sym -> ((Type.MethodType) sym.type).argtypes.containsAll(
+                            methodInvocation.args.stream()
+                                    .map(arg -> arg.type)
+                                    .collect(com.sun.tools.javac.util.List.collector())))
+                    .findAny()
+                    .orElseThrow(() -> new RuntimeException(new NoSuchMethodException()));
+        }
     }
 
     private static Symbol.MethodSymbol getMethodSymbol(JCMethodInvocation expr) {

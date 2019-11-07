@@ -431,10 +431,7 @@ public class Vector {
             return a.x * this.x + a.y * this.y + a.z * this.z;
         }
 
-        public idVec3 operator*(
-        final float a)
-
-        {
+        public idVec3 operator*(final float a) {
             return new idVec3(this.x * a, this.y * a, this.z * a);
         }
 
@@ -459,10 +456,7 @@ public class Vector {
             return new idVec3(x * inva, y * inva, z * inva);
         }
 
-        public idVec3 operator+(
-        final idVec3 a)
-
-        {
+        public idVec3 operator+(final idVec3 a) {
             return new idVec3(this.x + a.x, this.y + a.y, this.z + a.z);
         }
 
@@ -993,7 +987,7 @@ public class Vector {
             } else if (l >= 1.0f) {
                 this.oSet(v2);//(*this) = v2;
             } else {
-                this.oSet((v2.oMinus(v1)) * l + v1);//(*this) = v1 + l * ( v2 - v1 );
+                this.oSet((v2 - v1) * l + v1);//(*this) = v1 + l * ( v2 - v1 );
             }
         }
 
