@@ -461,7 +461,7 @@ public class Vector {
         }
 
         //public	idVec3			operator-( final  idVec3 &a ) final ;
-        public idVec3 oMinus(final idVec3 a) {
+        public idVec3 operator-(final idVec3 a) {
             return new idVec3(this.x - a.x, this.y - a.y, this.z - a.z);
         }
 
@@ -953,7 +953,7 @@ public class Vector {
                 return false;
             }
             cross.oMulSet(overBounce * normal.oMultiply(this) / len);//	cross *= overBounce * ( normal * (*this) ) / len;
-            this.oMinus(cross);//(*this) -= cross;
+            this.oMinSet(cross);//(*this) -= cross;
             return true;
         }
         /*

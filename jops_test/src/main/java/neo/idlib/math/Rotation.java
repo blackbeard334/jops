@@ -116,7 +116,7 @@ public class Rotation {
             int a = (1 + 2);
             idVec3 bla = (v);
             idVec3 bla2 = ((v));
-            return (axis.oMultiply(v.oMinus(origin))) + origin;
+            return (axis.oMultiply(v - origin)) + origin;
         }
 //
 //	friend idRotation	operator*( const float s, const idRotation &r );		// scale rotation
@@ -189,7 +189,7 @@ public class Rotation {
             if (!axisValid) {
                 ToMat3();
             }
-            point.oSet((point.oMinus(origin)).oMultiply(axis) + origin);
+            point.oSet((point - origin).oMultiply(axis) + origin);
         }
 
         public void Normalize180() {

@@ -446,7 +446,7 @@ public class Plane {
                 return true;
             }
             if (numPoints == 2) {
-                dir = points[1].oMinus(points[0]);
+                dir = points[1] - points[0];
 //		Normal() = dir.Cross( idVec3( 0, 0, 1 ) ).Cross( dir );
                 {
                     final float oldD = d;//save old d
@@ -465,7 +465,7 @@ public class Plane {
             average.oSet(sum.oDivide(numPoints));
 
             for (i = 0; i < numPoints; i++) {
-                dir = points[i].oMinus(average);
+                dir = points[i] - average;
                 sumXX += dir.x * dir.x;
                 sumXY += dir.x * dir.y;
                 sumXZ += dir.x * dir.z;
