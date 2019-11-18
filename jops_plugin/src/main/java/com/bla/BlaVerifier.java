@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** @version 0.5.1 */
+/** @version 0.5.2 */
 public class BlaVerifier {
     private final CompilationUnitTree compilationUnit;
 
@@ -250,6 +250,38 @@ public class BlaVerifier {
             }
 
             return null;
+        }
+
+        static boolean isLinealMatch(final Type src, final Type dst) {
+            if (dst == src) return true;
+
+            if (dst instanceof Type.ClassType) {
+                Type.ClassType classType = (Type.ClassType) dst;
+                return isLinealMatch(src, classType.supertype_field);
+            }
+
+            if (dst instanceof Type.JCPrimitiveType) {
+                //https://docs.oracle.com/javase/specs/jls/se10/html/jls-5.html#jls-5.1.2
+                switch (dst.getTag()) {
+                    case CHAR:
+                        return isLinealMatch(src, BlaPlugin.symtab.intType);
+                    case BYTE:
+                        return isLinealMatch(src, BlaPlugin.symtab.shortType);
+                    case SHORT:
+                        return isLinealMatch(src, BlaPlugin.symtab.intType);
+                    case INT:
+                        return isLinealMatch(src, BlaPlugin.symtab.longType);
+                    case LONG:
+                        return isLinealMatch(src, BlaPlugin.symtab.floatType);
+                    case FLOAT:
+                        return isLinealMatch(src, BlaPlugin.symtab.doubleType);
+                    case DOUBLE:
+                    default:
+                        return false;
+                }
+            }
+
+            return false;
         }
 
         static class BlaOverloadedMethod {

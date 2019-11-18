@@ -460,7 +460,7 @@ public class Plane {
 
             sum.Zero();
             for (i = 0; i < numPoints; i++) {
-                sum.oPluSet(points[i]);
+                sum += points[i];
             }
             average.oSet(sum / numPoints);
 

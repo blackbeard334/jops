@@ -363,9 +363,9 @@ public class idMat3 {
     }
 
     public void ProjectVector(final idVec3 src, idVec3 dst) {
-        dst.x = mat[0].oMultiply(src);
-        dst.y = mat[1].oMultiply(src);
-        dst.z = mat[2].oMultiply(src);
+        dst.x = mat[0] * src;
+        dst.y = mat[1] * src;
+        dst.z = mat[2] * src;
     }
 
     public void UnprojectVector(final idVec3 src, idVec3 dst) {

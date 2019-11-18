@@ -466,7 +466,7 @@ public class Vector {
         }
 
         //public	idVec3 &		operator+=( final  idVec3 &a );
-        public idVec3 oPluSet(final idVec3 a) {
+        public idVec3 operator+=(final idVec3 a) {
             this.x += a.x;
             this.y += a.y;
             this.z += a.z;
@@ -474,7 +474,7 @@ public class Vector {
         }
 
         //public	idVec3 &		operator-=( final  idVec3 &a );
-        public idVec3 oMinSet(final idVec3 a) {
+        public idVec3 operator-=(final idVec3 a) {
             this.x -= a.x;
             this.y -= a.y;
             this.z -= a.z;
@@ -934,7 +934,7 @@ public class Vector {
                 }
             }
 
-            this.oMinSet(oMultiply(backoff, normal));//	*this -= backoff * normal;
+            this -= oMultiply(backoff, normal);//	*this -= backoff * normal;
         }
 
         public boolean ProjectAlongPlane(final idVec3 normal, final float epsilon) {
@@ -953,7 +953,7 @@ public class Vector {
                 return false;
             }
             cross.oMulSet(overBounce * normal.oMultiply(this) / len);//	cross *= overBounce * ( normal * (*this) ) / len;
-            this.oMinSet(cross);//(*this) -= cross;
+            this -= cross;//(*this) -= cross;
             return true;
         }
         /*
@@ -1692,7 +1692,7 @@ public class Vector {
         }
 
         public void ToVec3_oPluSet(final idVec3 origin) {
-            this.oSet(ToVec3().oPluSet(origin));
+            this.oSet(ToVec3() += origin);
         }
     }
 

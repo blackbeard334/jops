@@ -55,7 +55,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.77.2 */
+/** @version 0.77.3 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -351,10 +351,14 @@ public class BlaPlugin implements Plugin {
                     .filter(Symbol.MethodSymbol.class::isInstance)
                     .filter(sym -> sym.name.equals(meth.name))
                     .filter(sym -> ((Type.MethodType) sym.type).argtypes.size() == methodInvocation.args.size())
-                    .filter(sym -> ((Type.MethodType) sym.type).argtypes.containsAll(
-                            methodInvocation.args.stream()
-                                    .map(arg -> arg.type)
-                                    .collect(com.sun.tools.javac.util.List.collector())))
+                    .filter(sym -> {
+                        for (int i = 0; i < methodInvocation.args.size(); i++) {
+                            if (!BlaVerifier.BlaOverloadedClass.isLinealMatch(((Type.MethodType) sym.type).argtypes.get(i), methodInvocation.args.get(i).type)) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    })
                     .findAny()
                     .orElseThrow(() -> new RuntimeException(new NoSuchMethodException()));
         }
