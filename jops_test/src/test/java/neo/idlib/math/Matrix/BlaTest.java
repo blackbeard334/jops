@@ -2,6 +2,7 @@ package neo.idlib.math.Matrix;
 
 import neo.idlib.math.Math_h;
 import neo.idlib.math.Simd;
+import neo.idlib.math.Vector;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -55,5 +56,21 @@ public class BlaTest {
         assertEquals(4, (a + b).oGet(zero, one), 0);
         assertEquals(6, (a + b).oGet(one, zero), 0);
         assertEquals(8, (a + b).oGet(one, one), 0);
+    }
+
+    @Test
+    public void blaUnary() {
+        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 b = new Vector.idVec3(1, 2, 3);
+
+        assertEquals(-14, -(a * b), 0);
+    }
+
+    @Test
+    public void blaTypeCast() {
+        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 b = new Vector.idVec3(1, 2, 3);
+
+        assertEquals(-16, ((int) -(a * b)) & ~3);
     }
 }

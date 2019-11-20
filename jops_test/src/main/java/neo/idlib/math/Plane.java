@@ -403,7 +403,7 @@ public class Plane {
             if (Normalize(fixDegenerate) == 0.0f) {
                 return false;
             }
-            d = -(Normal().oMultiply(p2));
+            d = -(Normal() * p2);
             return true;
         }
 

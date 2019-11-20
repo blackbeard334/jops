@@ -34,11 +34,13 @@ import java.lang.reflect.Field;
 import java.nio.Buffer;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.bla.BlaTest.BlaSimpleJavaFileObject;
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
@@ -55,7 +57,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.77.3 */
+/** @version 0.78 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -267,19 +269,7 @@ public class BlaPlugin implements Plugin {
                 if (expr instanceof OJCParens ||
                         expr instanceof JCMethodInvocation ||
                         expr instanceof JCTree.JCIdent) {
-                    final Name returnType;
-                    if (expr instanceof OJCParens)
-                        returnType = ((OJCParens) expr).returnType;
-                    else if (expr instanceof OJCMethodInvocation)
-                        returnType = ((OJCMethodInvocation) expr).returnType;
-                    else if (expr instanceof JCMethodInvocation) {//we need to check the return type
-                        final Symbol.MethodSymbol method = getMethodSymbol((JCMethodInvocation) expr);
-
-                        returnType = getReturnTypeName(method.getReturnType());
-                    } else
-                        returnType = nameTypeMap.get(((JCTree.JCIdent) expr).name);
-
-                    return new OJCParens(expr, returnType);
+                    return new OJCParens(expr);
                 }
                 /**
                  * *return value of a method
@@ -332,9 +322,18 @@ public class BlaPlugin implements Plugin {
                     fieldAccess.type = fieldAccess.sym.type.getReturnType();
                 }
                 break;
+            case "JCUnary":
+                JCTree.JCUnary jcUnary = (JCTree.JCUnary) tree;
+                jcUnary.arg = (JCExpression) bla(jcUnary.arg);
+                if (jcUnary.type.tsym.kind == Kinds.Kind.ERR)
+                    jcUnary.type = jcUnary.arg.type;
+                break;
+            case "JCTypeCast":
+                JCTree.JCTypeCast typeCast = (JCTree.JCTypeCast) tree;
+                typeCast.expr = (JCExpression) bla(typeCast.expr);
+                break;
             case "JCIdent":
             case "JCLiteral":
-            case "JCUnary":
             default:
                 return tree;
         }
@@ -362,34 +361,6 @@ public class BlaPlugin implements Plugin {
                     .findAny()
                     .orElseThrow(() -> new RuntimeException(new NoSuchMethodException()));
         }
-    }
-
-    private static Symbol.MethodSymbol getMethodSymbol(JCMethodInvocation expr) {
-        final JCTree.JCFieldAccess meth = (JCTree.JCFieldAccess) expr.meth;
-        final Name methName = meth.name;
-
-        final Name selectedType = nameTypeMap.get(((JCTree.JCIdent) meth.selected).getName());
-        final Symbol selectedSymbol = nameClassMap.get(selectedType);
-
-        Name argType = null;
-        if (!expr.getArguments().isEmpty()) {//0 arg method invoke
-            final JCExpression arg0 = expr.getArguments().get(0);
-            if (arg0 instanceof JCTree.JCIdent)
-                argType = nameTypeMap.get(((JCTree.JCIdent) arg0).getName());
-            else if (arg0 instanceof JCMethodInvocation)
-                argType = nameTypeMap.get(getMethodSymbol((JCMethodInvocation) arg0).getReturnType().tsym.getSimpleName());
-        }
-        final Symbol argSymbol = nameClassMap.get(argType);
-
-        //TODO get method return type from symbol
-        return selectedSymbol.getEnclosedElements().stream()//TODO cache results
-                .filter(Symbol.MethodSymbol.class::isInstance)
-                .map(Symbol.MethodSymbol.class::cast)
-                .filter(m -> m.getSimpleName().equals(methName))
-                .filter(m -> m.getParameters().size() == 1)//we assume a single param here
-                .filter(m -> m.getParameters().stream().anyMatch(p -> p.type.tsym.equals(argSymbol)))
-                .findFirst()
-                .orElseThrow();
     }
 
     private static Name getReturnTypeName(JCVariableDecl variableDecl) {
@@ -525,14 +496,34 @@ public class BlaPlugin implements Plugin {
             for (Symbol clazz : ((Symbol.PackageSymbol) packge).members_field.getSymbols()) {
                 if (checkedClasses.contains(clazz) || isOverloadedType(clazz.getSimpleName())) continue;
 
-                if (hasOperatorOverloadingAnnotation(clazz)) {
-                    //parse and add to some list
-                    BlaClassVerifier classVerifier = new BlaClassVerifier((Symbol.ClassSymbol) clazz);
-                    overloadedClasses.put(clazz.getSimpleName(), classVerifier.getOverloadedClass());
-                }
-                checkedClasses.add(clazz);
+                loadNestedClasses(clazz);
             }
         }
+    }
+
+    private void loadNestedClasses(final Symbol classSymbol) {
+        for (Symbol.ClassSymbol clazz : getNestedClasses((Symbol.ClassSymbol) classSymbol)) {
+            if (hasOperatorOverloadingAnnotation(clazz)) {
+                //parse and add to some list
+                BlaClassVerifier classVerifier = new BlaClassVerifier(clazz);
+                overloadedClasses.put(clazz.getSimpleName(), classVerifier.getOverloadedClass());
+            }
+            checkedClasses.add(clazz);
+        }
+    }
+
+    private List<Symbol.ClassSymbol> getNestedClasses(final Symbol.ClassSymbol clazz) {
+        List<Symbol.ClassSymbol> classes = new ArrayList<>();
+        classes.add(clazz);
+
+        classes.addAll(clazz.getEnclosedElements().stream()
+                .filter(Symbol.ClassSymbol.class::isInstance)
+                .map(Symbol.ClassSymbol.class::cast)
+                .map(this::getNestedClasses)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList()));
+
+        return classes;
     }
 
     private boolean hasOperatorOverloadingAnnotation(Symbol clazz) {
