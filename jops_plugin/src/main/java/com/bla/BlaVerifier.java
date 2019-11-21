@@ -107,12 +107,12 @@ public class BlaVerifier {
                 return BlaPlugin.symtab.charType.tsym.name;
             case SHORT:
                 return BlaPlugin.symtab.shortType.tsym.name;
+            case INT:
+                return BlaPlugin.symtab.intType.tsym.name;
             case LONG:
                 return BlaPlugin.symtab.longType.tsym.name;
             case FLOAT:
                 return BlaPlugin.symtab.floatType.tsym.name;
-            case INT:
-                return BlaPlugin.symtab.intType.tsym.name;
             case DOUBLE:
                 return BlaPlugin.symtab.doubleType.tsym.name;
             case BOOLEAN:

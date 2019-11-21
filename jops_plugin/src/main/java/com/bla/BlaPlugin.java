@@ -34,6 +34,7 @@ import java.lang.reflect.Field;
 import java.nio.Buffer;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,7 +58,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.78 */
+/** @version 0.78.1 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -284,6 +285,7 @@ public class BlaPlugin implements Plugin {
             case "JCReturn":
                 JCReturn jcReturn = (JCReturn) tree;
                 jcReturn.expr = (JCExpression) bla(jcReturn.expr);
+//                jcReturn.type = jcReturn.expr == null ? BlaPlugin.symtab.voidType : jcReturn.expr.type;
                 break;
             case "JCAssign": //a unique annoying fucking case
                 JCAssign assign = (JCAssign) tree;
@@ -331,6 +333,16 @@ public class BlaPlugin implements Plugin {
             case "JCTypeCast":
                 JCTree.JCTypeCast typeCast = (JCTree.JCTypeCast) tree;
                 typeCast.expr = (JCExpression) bla(typeCast.expr);
+                break;
+            case "JCNewClass":
+                JCTree.JCNewClass jcNewClass = (JCTree.JCNewClass) tree;
+                jcNewClass.args = jcNewClass.args.stream()
+                        .map(BlaPlugin::bla)
+                        .map(JCExpression.class::cast)
+                        .collect(com.sun.tools.javac.util.List.collector());
+                if (jcNewClass.constructorType.tsym.kind == Kinds.Kind.ERR) {
+                    jcNewClass.constructorType = jcNewClass.constructor.type;
+                }
                 break;
             case "JCIdent":
             case "JCLiteral":
@@ -552,7 +564,35 @@ public class BlaPlugin implements Plugin {
             }
             // if type has binary.getOperator() && binary.rhs is the correct param type
         }
+
+        if (expression.type.tsym.kind == Kinds.Kind.ERR && left.type instanceof Type.JCPrimitiveType) {
+            setPrimitiveOperationType((Type.JCPrimitiveType) left.type, (Type.JCPrimitiveType) right.type, expression);
+        }
         return expression;
+    }
+
+    /**
+     * if we don't know that a binary operation contains both primitives cuz one was the result of an
+     * overloaded operation(eg <b>1 + a * b</b>, where the result of <b>a * b</b> is obviously a primitive, since we
+     * can't overload primitive ops
+     */
+    private static void setPrimitiveOperationType(final Type.JCPrimitiveType left, final Type.JCPrimitiveType right, JCTree.JCOperatorExpression expression) {
+        final List<Type> types = Arrays.asList(left, right);
+        // the order of this list is also based on the jls-5.1.2 section //TODO does the order of this list change per operation?
+        if (types.contains(BlaPlugin.symtab.doubleType))
+            expression.type = BlaPlugin.symtab.doubleType;
+        else if (types.contains(BlaPlugin.symtab.floatType))
+            expression.type = BlaPlugin.symtab.floatType;
+        else if (types.contains(BlaPlugin.symtab.longType))
+            expression.type = BlaPlugin.symtab.longType;
+        else if (types.contains(BlaPlugin.symtab.intType))
+            expression.type = BlaPlugin.symtab.intType;
+        else if (types.contains(BlaPlugin.symtab.shortType))
+            expression.type = BlaPlugin.symtab.shortType;
+        else if (types.contains(BlaPlugin.symtab.charType))
+            expression.type = BlaPlugin.symtab.charType;
+        else if (types.contains(BlaPlugin.symtab.byteType))
+            expression.type = BlaPlugin.symtab.byteType;
     }
 
     private static Name getReturnTypeName(Type type) {

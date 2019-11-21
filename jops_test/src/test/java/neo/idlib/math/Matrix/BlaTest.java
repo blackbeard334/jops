@@ -73,4 +73,23 @@ public class BlaTest {
 
         assertEquals(-16, ((int) -(a * b)) & ~3);
     }
+
+    @Test
+    public void blaNewClass() {
+        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 b = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 c = new Vector.idVec3(1, 2, a * b);
+
+        assertEquals(14, c.z, 0);
+    }
+
+    @Test
+    public void blaBinaryOperationWithUnknownTypesDueToOverloading_Har_Har_Har() {
+        //Fatal Error: Unable to find method byteValue
+        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 b = new Vector.idVec3(1, 2, 3);
+        float z = 1 - a * b;
+
+        assertEquals(-13, z, 0);
+    }
 }

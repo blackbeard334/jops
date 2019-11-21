@@ -423,13 +423,13 @@ public class Plane {
             if (Normalize(fixDegenerate) == 0.0f) {
                 return false;
             }
-            d = -(Normal().oMultiply(p));
+            d = -(Normal() * p);
             return true;
         }
 
         // assumes normal is valid
         public void FitThroughPoint(final idVec3 p) {
-            d = -(Normal().oMultiply(p));
+            d = -(Normal() * p);
         }
 
         public boolean HeightFit(final idVec3[] points, final int numPoints) {
@@ -454,7 +454,7 @@ public class Plane {
                     d = oldD;            //replace the zeroed d with its original value
                 }
                 Normalize();
-                d = -(Normal().oMultiply(points[0]));
+                d = -(Normal() * points[0]);
                 return true;
             }
 
@@ -487,7 +487,7 @@ public class Plane {
         }
 
         public idPlane Translate(final idVec3 translation) {
-            return new idPlane(abc.x, abc.y, abc.z, d - translation.oMultiply(Normal()));
+            return new idPlane(abc.x, abc.y, abc.z, d - translation * Normal());
         }
 
         public idPlane TranslateSelf(final idVec3 translation) {
