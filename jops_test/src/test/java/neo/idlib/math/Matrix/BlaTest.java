@@ -1,6 +1,5 @@
 package neo.idlib.math.Matrix;
 
-import neo.TempDump;
 import neo.idlib.math.Math_h;
 import neo.idlib.math.Simd;
 import neo.idlib.math.Vector;
@@ -104,5 +103,16 @@ public class BlaTest {
         final Vector.idVec3 f = c.oMulSet(e * (a * b) / e);
 
         assertEquals(14, f.x, 0);
+    }
+
+    @Test
+    public void blaMemberOfResult_OfFunctionCallWithUnknownResultOfBinaryOperation() {
+        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 b = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 c = new Vector.idVec3(1, 2, 3);
+        float d = 1;
+        float e = 2;
+
+        assertEquals(14, c.oMulSet(e * (a * b) / e).x, 0);
     }
 }

@@ -40,7 +40,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -59,7 +58,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.78.2 */
+/** @version 0.78.3 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -323,6 +322,14 @@ public class BlaPlugin implements Plugin {
                 fieldAccess.selected = (JCExpression) bla(fieldAccess.selected);
                 if (fieldAccess.selected instanceof JCMethodInvocation && fieldAccess.sym.type instanceof Type.MethodType) {
                     fieldAccess.type = fieldAccess.sym.type.getReturnType();
+                }
+                if (fieldAccess.selected instanceof JCMethodInvocation && fieldAccess.sym.kind == Kinds.Kind.ERR) {
+                    final Symbol selectedSymbol = fieldAccess.selected.type.tsym.getEnclosedElements().stream()
+                            .filter(e -> e.name.equals(fieldAccess.name))
+                            .findAny()
+                            .orElseThrow();
+                    fieldAccess.sym = selectedSymbol;
+                    fieldAccess.type = selectedSymbol.type;
                 }
                 break;
             case "JCUnary":
