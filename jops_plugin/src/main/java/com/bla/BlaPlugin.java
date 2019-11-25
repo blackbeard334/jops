@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -58,7 +59,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.78.1 */
+/** @version 0.78.2 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -356,7 +357,7 @@ public class BlaPlugin implements Plugin {
     private static void setMethodSymbolIfERR(JCMethodInvocation methodInvocation, JCTree.JCFieldAccess meth) {
         //lookup the method and set the symbol
         //problem is if it's an overloaded method, then we need the args which aren't available here
-        if (meth.sym.kind == Kinds.Kind.ERR) {
+        if (meth.sym.kind == Kinds.Kind.ERR || methodInvocation.type.tsym.kind == Kinds.Kind.ERR) {
             final Type selectedType = meth.selected.type;
             meth.sym = selectedType.tsym.getEnclosedElements().stream()
                     .filter(Symbol.MethodSymbol.class::isInstance)

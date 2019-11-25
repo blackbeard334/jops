@@ -952,7 +952,7 @@ public class Vector {
             if (idMath.Fabs(len) < epsilon) {
                 return false;
             }
-            cross.oMulSet(overBounce * normal.oMultiply(this) / len);//	cross *= overBounce * ( normal * (*this) ) / len;
+            cross.oMulSet(overBounce * (normal * this) / len);//	cross *= overBounce * ( normal * (*this) ) / len;
             this -= cross;//(*this) -= cross;
             return true;
         }

@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** @version 0.5.2 */
+/** @version 0.5.3 */
 public class BlaVerifier {
     private final CompilationUnitTree compilationUnit;
 
@@ -253,11 +253,20 @@ public class BlaVerifier {
         }
 
         static boolean isLinealMatch(final Type src, final Type dst) {
-            if (dst == src) return true;
+            if (dst.tsym == src.tsym) return true;
 
             if (dst instanceof Type.ClassType) {
                 Type.ClassType classType = (Type.ClassType) dst;
                 return isLinealMatch(src, classType.supertype_field);
+            }
+
+            if (dst instanceof Type.ArrayType) {
+                final Type.ArrayType dstType = (Type.ArrayType) dst;
+                final Type.ArrayType srcType = (Type.ArrayType) src;
+                if (dstType.elemtype instanceof Type.JCPrimitiveType) {//primitive arrays are absolute
+                    return srcType.elemtype.tsym == dstType.elemtype.tsym;
+                }
+                return isLinealMatch(srcType.elemtype, dstType.elemtype);
             }
 
             if (dst instanceof Type.JCPrimitiveType) {
