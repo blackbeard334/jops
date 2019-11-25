@@ -491,19 +491,19 @@ public class Plane {
         }
 
         public idPlane TranslateSelf(final idVec3 translation) {
-            d -= translation.oMultiply(Normal());
+            d -= translation * Normal();
             return this;
         }
 
         public idPlane Rotate(final idVec3 origin, final idMat3 axis) {
             idPlane p = new idPlane();
             p.oSet(axis.oMultiply(Normal()));
-            p.d = d + origin.oMultiply(Normal()) - origin.oMultiply(p.Normal());
+            p.d = d + origin * Normal() - origin * p.Normal();
             return p;
         }
 
         public idPlane RotateSelf(final idVec3 origin, final idMat3 axis) {
-            d += origin.oMultiply(Normal());
+            d += origin * Normal();
 
             {
                 final float oldD = d;//save old d
@@ -511,7 +511,7 @@ public class Plane {
                 d = oldD;            //replace the zeroed d with its original value
             }
 
-            d -= origin.oMultiply(Normal());
+            d -= origin * Normal();
             return this;
         }
 
@@ -537,8 +537,8 @@ public class Plane {
         public boolean LineIntersection(final idVec3 start, final idVec3 end) {
             float d1, d2, fraction;
 
-            d1 = Normal().oMultiply(start.oPlus(d));
-            d2 = Normal().oMultiply(end.oPlus(d));
+            d1 = Normal() * start.oPlus(d);
+            d2 = Normal() * end.oPlus(d);
             if (d1 == d2) {
                 return false;
             }
@@ -556,8 +556,8 @@ public class Plane {
         public boolean RayIntersection(final idVec3 start, final idVec3 dir, float[] scale) {
             float d1, d2;
 
-            d1 = Normal().oMultiply(start.oPlus(d));
-            d2 = Normal().oMultiply(dir);
+            d1 = Normal() * start.oPlus(d);
+            d2 = Normal() * dir;
             if (d2 == 0.0f) {
                 return false;
             }
@@ -569,7 +569,7 @@ public class Plane {
             float n00, n01, n11, det, invDet, f0, f1;
 
             n00 = Normal().LengthSqr();
-            n01 = Normal().oMultiply(plane.Normal());
+            n01 = Normal() * plane.Normal();
             n11 = plane.Normal().LengthSqr();
             det = n00 * n11 - n01 * n01;
 

@@ -426,8 +426,7 @@ public class Vector {
             return this;
         }
 
-        //public	float			operator*( final  idVec3 &a ) final ;
-        public float oMultiply(final idVec3 a) {
+        public float operator*(final idVec3 a) {
             return a.x * this.x + a.y * this.y + a.z * this.z;
         }
 
@@ -924,7 +923,7 @@ public class Vector {
         public void ProjectOntoPlane(final idVec3 normal, final float overBounce) {
             float backoff;
             // x * a.x + y * a.y + z * a.z;
-            backoff = this.oMultiply(normal);//	backoff = this.x * normal.x;//TODO:normal.x???
+            backoff = this * normal;//	backoff = this.x * normal.x;//TODO:normal.x???
 
             if (overBounce != 1.0) {
                 if (backoff < 0) {
@@ -948,7 +947,7 @@ public class Vector {
             cross = this.Cross(normal).Cross(this);
             // normalize so a fixed epsilon can be used
             cross.Normalize();
-            len = normal.oMultiply(cross);
+            len = normal * cross;
             if (idMath.Fabs(len) < epsilon) {
                 return false;
             }
@@ -1014,7 +1013,7 @@ public class Vector {
                 return;
             }
 
-            cosom = v1.oMultiply(v2);
+            cosom = v1 * v2;
             if ((1.0f - cosom) > LERP_DELTA) {
                 omega = (float) Math.acos(cosom);
                 sinom = (float) Math.sin(omega);
