@@ -116,7 +116,7 @@ public class Rotation {
             int a = (1 + 2);
             idVec3 bla = (v);
             idVec3 bla2 = ((v));
-            return (axis.oMultiply(v - origin)) + origin;
+            return (axis * (v - origin)) + origin;
         }
 //
 //	friend idRotation	operator*( const float s, const idRotation &r );		// scale rotation

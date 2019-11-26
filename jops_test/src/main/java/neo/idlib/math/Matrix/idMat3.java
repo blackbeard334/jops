@@ -1,14 +1,14 @@
 package neo.idlib.math.Matrix;
 
+import com.bla.annotation.OperatorOverloading;
 import neo.idlib.Text.Str.idStr;
-import neo.idlib.math.Angles;
 import neo.idlib.math.Math_h.idMath;
 import neo.idlib.math.Quat.idCQuat;
 import neo.idlib.math.Quat.idQuat;
 import neo.idlib.math.Rotation.idRotation;
 import neo.idlib.math.Vector.idVec3;
 
-import static neo.idlib.math.Angles.*;
+import static neo.idlib.math.Angles.idAngles;
 import static neo.idlib.math.Math_h.DEG2RAD;
 import static neo.idlib.math.Matrix.idMat0.MATRIX_EPSILON;
 import static neo.idlib.math.Matrix.idMat0.MATRIX_INVERSE_EPSILON;
@@ -21,6 +21,7 @@ import static neo.idlib.math.Vector.RAD2DEG;
 //	NOTE:	matrix is column-major
 //
 //===============================================================
+@OperatorOverloading
 public class idMat3 {
     public static final int BYTES = idVec3.BYTES * 3;
 
@@ -119,25 +120,22 @@ public class idMat3 {
                 -mat[1].x, -mat[1].y, -mat[1].z,
                 -mat[2].x, -mat[2].y, -mat[2].z);
     }
-//public	idMat3			operator*( const float a ) const;
 
-    public idMat3 oMultiply(final float a) {
+    public idMat3 operator*(final float a) {
         return new idMat3(
                 mat[0].x * a, mat[0].y * a, mat[0].z * a,
                 mat[1].x * a, mat[1].y * a, mat[1].z * a,
                 mat[2].x * a, mat[2].y * a, mat[2].z * a);
     }
-//public	idVec3			operator*( const idVec3 &vec ) const;
 
-    public idVec3 oMultiply(final idVec3 vec) {
+    public idVec3 operator*(final idVec3 vec) {
         return new idVec3(
                 mat[0].x * vec.x + mat[1].x * vec.y + mat[2].x * vec.z,
                 mat[0].y * vec.x + mat[1].y * vec.y + mat[2].y * vec.z,
                 mat[0].z * vec.x + mat[1].z * vec.y + mat[2].z * vec.z);
     }
-//public	idMat3			operator*( const idMat3 &a ) const;
 
-    public idMat3 oMultiply(final idMat3 a) {
+    public idMat3 operator*(final idMat3 a) {
         int i, j;
         float[] m1Ptr, m2Ptr;
 //            float dstPtr;
@@ -158,25 +156,22 @@ public class idMat3 {
         }
         return dst;
     }
-//public	idMat3			operator+( const idMat3 &a ) const;
 
-    public idMat3 oPlus(final idMat3 a) {
+    public idMat3 operator+(final idMat3 a) {
         return new idMat3(
                 this.mat[0].x + a.mat[0].x, this.mat[0].y + a.mat[0].y, this.mat[0].z + a.mat[0].z,
                 this.mat[1].x + a.mat[1].x, this.mat[1].y + a.mat[1].y, this.mat[1].z + a.mat[1].z,
                 this.mat[2].x + a.mat[2].x, this.mat[2].y + a.mat[2].y, this.mat[2].z + a.mat[2].z);
     }
-//public	idMat3			operator-( const idMat3 &a ) const;
 
-    public idMat3 oMinus(final idMat3 a) {
+    public idMat3 operator-(final idMat3 a) {
         return new idMat3(
                 this.mat[0].x - a.mat[0].x, this.mat[0].y - a.mat[0].y, this.mat[0].z - a.mat[0].z,
                 this.mat[1].x - a.mat[1].x, this.mat[1].y - a.mat[1].y, this.mat[1].z - a.mat[1].z,
                 this.mat[2].x - a.mat[2].x, this.mat[2].y - a.mat[2].y, this.mat[2].z - a.mat[2].z);
     }
-//public	idMat3 &		operator*=( const float a );
 
-    public idMat3 oMulSet(final float a) {
+    public idMat3 operator*=(final float a) {
         this.mat[0].x *= a;
         this.mat[0].y *= a;
         this.mat[0].z *= a;
@@ -190,9 +185,8 @@ public class idMat3 {
         this.mat[2].z *= a;
         return this;
     }
-//public	idMat3 &		operator*=( const idMat3 &a );
 
-    public idMat3 oMulSet(final idMat3 a) {
+    public idMat3 operator*=(final idMat3 a) {
         int i, j;
         float[] dst = new float[3];
 
@@ -208,9 +202,8 @@ public class idMat3 {
         }
         return this;
     }
-//public	idMat3 &		operator+=( const idMat3 &a );
 
-    public idMat3 oPluSet(final float a) {
+    public idMat3 operator+=(final float a) {
         this.mat[0].x += a;
         this.mat[0].y += a;
         this.mat[0].z += a;
@@ -224,9 +217,8 @@ public class idMat3 {
         this.mat[2].z += a;
         return this;
     }
-//public	idMat3 &		operator-=( const idMat3 &a );
 
-    public idMat3 oMinSet(final float a) {
+    public idMat3 operator-=(final float a) {
         this.mat[0].x -= a;
         this.mat[0].y -= a;
         this.mat[0].z -= a;
@@ -244,12 +236,12 @@ public class idMat3 {
 //public	friend idMat3	operator*( const float a, const idMat3 &mat );
 
     public static idMat3 oMultiply(final float a, final idMat3 mat) {
-        return mat.oMultiply(a);
+        return mat * a;
     }
 //public	friend idVec3	operator*( const idVec3 &vec, const idMat3 &mat );
 
     public static idVec3 oMultiply(final idVec3 vec, final idMat3 mat) {
-        return mat.oMultiply(vec);
+        return mat * vec;
     }
 //public	friend idVec3 &	operator*=( idVec3 &vec, const idMat3 &mat );
 
@@ -537,7 +529,7 @@ public class idMat3 {
         m.mat[1].z = m.mat[2].y = mass * (newCenter.y * newCenter.z - centerOfMass.y * centerOfMass.z);
         m.mat[0].z = m.mat[2].x = mass * (newCenter.x * newCenter.z - centerOfMass.x * centerOfMass.z);
 
-        return this.oPlus(m);
+        return this + m;
     }
 
     public idMat3 InertiaTranslateSelf(final float mass, final idVec3 centerOfMass, final idVec3 translation) {
@@ -557,19 +549,17 @@ public class idMat3 {
         m.mat[1].z = m.mat[2].y = mass * (newCenter.y * newCenter.z - centerOfMass.y * centerOfMass.z);
         m.mat[0].z = m.mat[2].x = mass * (newCenter.x * newCenter.z - centerOfMass.x * centerOfMass.z);
 
-        return this.oPluSet(m);
+        return this += m;
     }
 
     public idMat3 InertiaRotate(final idMat3 rotation) {
         // NOTE: the rotation matrix is stored column-major
-//            return rotation.Transpose() * (*this) * rotation;
-        return rotation.Transpose().oMultiply(this).oMultiply(rotation);
+        return rotation.Transpose() * (this) * rotation;
     }
 
     public idMat3 InertiaRotateSelf(final idMat3 rotation) {
         // NOTE: the rotation matrix is stored column-major
-//	*this = rotation.Transpose() * (*this) * rotation;
-        this.oSet(rotation.Transpose().oMultiply(this).oMultiply(rotation));
+        this.oSet(rotation.Transpose() * (this) * rotation);
         return this;
     }
 
@@ -831,7 +821,7 @@ public class idMat3 {
         }
     }
 
-    public idMat3 oPluSet(final idMat3 a) {
+    public idMat3 operator+=(final idMat3 a) {
         this.mat[0].x += a.mat[0].x;
         this.mat[0].y += a.mat[0].y;
         this.mat[0].z += a.mat[0].z;

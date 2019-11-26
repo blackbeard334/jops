@@ -496,7 +496,7 @@ public class Plane {
 
         public idPlane Rotate(final idVec3 origin, final idMat3 axis) {
             idPlane p = new idPlane();
-            p.oSet(axis.oMultiply(Normal()));
+            p.oSet(axis * Normal());
             p.d = d + origin * Normal() - origin * p.Normal();
             return p;
         }
@@ -506,7 +506,7 @@ public class Plane {
 
             {
                 final float oldD = d;//save old d
-                this.oSet(axis.oMultiply(Normal()));     //set new values
+                this.oSet(axis * Normal());     //set new values
                 d = oldD;            //replace the zeroed d with its original value
             }
 
