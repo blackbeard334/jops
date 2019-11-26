@@ -1985,6 +1985,7 @@ public class Vector {
     //	NOTE: due to the temporary memory pool idVecX cannot be used by multiple threads
     //
     //===============================================================
+    @OperatorOverloading
     public static class idVecX {
         // friend class idMatX;
 
@@ -2079,7 +2080,7 @@ public class Vector {
             return this;
         }
 
-        public idVecX oMultiply(final float a) {
+        public idVecX operator*(final float a) {
             idVecX m = new idVecX();
 
             m.SetTempSize(size);
@@ -2094,9 +2095,8 @@ public class Vector {
             return m;
         }
 //public	idVecX			operator/( const float a ) const;
-//public	float			operator*( const idVecX &a ) const;
 
-        public float oMultiply(final idVecX a) {
+        public float operator*(final idVecX a) {
             int i;
             float sum = 0.0f;
 
@@ -2107,9 +2107,8 @@ public class Vector {
             return sum;
         }
 //public	idVecX			operator-( const idVecX &a ) const;
-//public	idVecX			operator+( const idVecX &a ) const;
 
-        public idVecX oPlus(final idVecX a) {
+        public idVecX operator+(final idVecX a) {
             idVecX m = new idVecX();
 
             assert (size == a.size);
@@ -2124,9 +2123,8 @@ public class Vector {
 //#endif
             return m;
         }
-//public	idVecX &		operator*=( const float a );
 
-        public idVecX oMulSet(final float a) {
+        public idVecX operator*=(final float a) {
 //#ifdef VECX_SIMD
 //	SIMDProcessor->MulAssign16( p, a, size );
 //#else

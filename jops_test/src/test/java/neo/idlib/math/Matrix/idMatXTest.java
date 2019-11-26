@@ -561,7 +561,7 @@ public class idMatXTest {
 
             int pdtable[] = {1, 0, 1, 0, 0, 0};
             w.Random(size, pdtable[offset]);
-            w.oMulSet(0.1f);
+            w *= 0.1f;
 
             // modify and factor m2
             m2.Update_RowColumnSymmetric(w, offset);

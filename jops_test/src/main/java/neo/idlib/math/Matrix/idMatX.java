@@ -1948,7 +1948,7 @@ public class idMatX {
 
         Multiply(y, v);
         TransposeMultiply(z, w);
-        beta = 1.0f + (w.oMultiply(y));
+        beta = 1.0f + w * y;
 
         if (beta == 0.0f) {
             return false;
@@ -2472,7 +2472,7 @@ public class idMatX {
                 // move row index[r] of the original matrix to row index[p] of the original matrix
                 v1.Zero();
                 v1.p[index[p]] = 1.0f;
-                w1 = u.oPlus(w.oNegative());
+                w1 = u + w.oNegative();
 
                 if (!LU_UpdateRankOne(v1, w1, 1.0f, index)) {
                     return false;
@@ -2714,7 +2714,7 @@ public class idMatX {
 
         u.SetData(v.GetSize(), VECX_ALLOCA(v.GetSize()));
         TransposeMultiply(u, v);
-        u.oMulSet(alpha);
+        u *= alpha;
 
         for (k = v.GetSize() - 1; k > 0; k--) {
             if (u.p[k] != 0.0f) {
