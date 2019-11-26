@@ -115,4 +115,15 @@ public class BlaTest {
 
         assertEquals(14, c.oMulSet(e * (a * b) / e).x, 0);
     }
+
+    @Test
+    public void blaComplexOverloadedOperation_WithOverloadedAssigned_WithParens() {
+        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 b = new Vector.idVec3(1, 2, 3);
+        Vector.idVec3 c = new Vector.idVec3(1, 2, 3);
+        float d = 1;
+        float e = 2;
+        c *= (e * (a * b) / e);
+        assertEquals(14, c.x, 0);
+    }
 }

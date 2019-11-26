@@ -58,7 +58,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.78.3 */
+/** @version 0.78.4 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -271,6 +271,10 @@ public class BlaPlugin implements Plugin {
                         expr instanceof JCMethodInvocation ||
                         expr instanceof JCTree.JCIdent) {
                     return new OJCParens(expr);
+                }
+
+                if (parens.type.tsym.kind == Kinds.Kind.ERR) {
+                    parens.type = parens.expr.type;
                 }
                 /**
                  * *return value of a method
