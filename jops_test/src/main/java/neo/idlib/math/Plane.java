@@ -193,9 +193,8 @@ public class Plane {
         }
 //public	idPlane &		operator*=( const idMat3 &m );			// Normal() *= m
 
-        // Normal() *= m
         public idPlane oMulSet(final idMat3 m) {
-            Normal().oMulSet(m);
+            Normal() *= m;
             return this;
         }
 
@@ -537,8 +536,8 @@ public class Plane {
         public boolean LineIntersection(final idVec3 start, final idVec3 end) {
             float d1, d2, fraction;
 
-            d1 = Normal() * start.oPlus(d);
-            d2 = Normal() * end.oPlus(d);
+            d1 = Normal() * start + d;
+            d2 = Normal() * end + d;
             if (d1 == d2) {
                 return false;
             }
@@ -556,7 +555,7 @@ public class Plane {
         public boolean RayIntersection(final idVec3 start, final idVec3 dir, float[] scale) {
             float d1, d2;
 
-            d1 = Normal() * start.oPlus(d);
+            d1 = Normal() * start + d;
             d2 = Normal() * dir;
             if (d2 == 0.0f) {
                 return false;

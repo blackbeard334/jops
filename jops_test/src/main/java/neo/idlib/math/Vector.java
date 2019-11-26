@@ -434,22 +434,21 @@ public class Vector {
             return new idVec3(this.x * a, this.y * a, this.z * a);
         }
 
-        public idVec3 oMultiply(final idMat3 a) {
+        public idVec3 operator*(final idMat3 a) {
             return new idVec3(
                     a.getRow(0).oGet(0) * x + a.getRow(1).oGet(0) * y + a.getRow(2).oGet(0) * z,
                     a.getRow(0).oGet(1) * x + a.getRow(1).oGet(1) * y + a.getRow(2).oGet(1) * z,
                     a.getRow(0).oGet(2) * x + a.getRow(1).oGet(2) * y + a.getRow(2).oGet(2) * z);
         }
 
-        public idVec3 oMultiply(final idRotation a) {
+        public idVec3 operator*(final idRotation a) {
             return a.oMultiply(this);
         }
 
-        public idVec3 oMultiply(final idMat4 a) {
+        public idVec3 operator*(final idMat4 a) {
             return a.oMultiply(this);
         }
 
-        //public	idVec3			operator/( final  float a ) final ;
         public idVec3 operator/(final float a) {
             float inva = 1.0f / a;
             return new idVec3(x * inva, y * inva, z * inva);
@@ -459,12 +458,10 @@ public class Vector {
             return new idVec3(this.x + a.x, this.y + a.y, this.z + a.z);
         }
 
-        //public	idVec3			operator-( final  idVec3 &a ) final ;
         public idVec3 operator-(final idVec3 a) {
             return new idVec3(this.x - a.x, this.y - a.y, this.z - a.z);
         }
 
-        //public	idVec3 &		operator+=( final  idVec3 &a );
         public idVec3 operator+=(final idVec3 a) {
             this.x += a.x;
             this.y += a.y;
@@ -472,7 +469,6 @@ public class Vector {
             return this;
         }
 
-        //public	idVec3 &		operator-=( final  idVec3 &a );
         public idVec3 operator-=(final idVec3 a) {
             this.x -= a.x;
             this.y -= a.y;
@@ -480,28 +476,26 @@ public class Vector {
             return this;
         }
 
-        //public	idVec3 &		operator/=( final  idVec3 &a );
-        public idVec3 oDivSet(final float a) {
+        public idVec3 operator/=(final float a) {
             this.x /= a;
             this.y /= a;
             this.z /= a;
             return this;
         }
 
-        //public	idVec3 &		operator*=( final  float a );
-        public idVec3 oMulSet(final float a) {
+        public idVec3 operator*=(final float a) {
             this.x *= a;
             this.y *= a;
             this.z *= a;
             return this;
         }
 
-        public idVec3 oMulSet(final idMat3 mat) {
+        public idVec3 operator*=(final idMat3 mat) {
             this.oSet(idMat3.oMulSet(this, mat));
             return this;
         }
 
-        public idVec3 oMulSet(final idRotation rotation) {
+        public idVec3 operator*=(final idRotation rotation) {
             this.oSet(rotation.oMultiply(this));
             return this;
         }
@@ -536,7 +530,7 @@ public class Vector {
         //private idVec3  multiply(float a){
 //    return new idVec3( this.x * a, this.y * a, this.z * a );
 //}
-        public idVec3 oPlus(final float a) {
+        public idVec3 operator+(final float a) {
             this.x += a;
             this.y += a;
             this.z += a;
@@ -1687,7 +1681,7 @@ public class Vector {
         }
 
         public void ToVec3_oMulSet(final idMat3 axis) {
-            this.oSet(ToVec3().oMulSet(axis));
+            this.oSet(ToVec3() *= (axis));
         }
 
         public void ToVec3_oPluSet(final idVec3 origin) {
