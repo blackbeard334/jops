@@ -1,5 +1,6 @@
 package neo.idlib.math;
 
+import com.bla.annotation.OperatorOverloading;
 import neo.idlib.Text.Str.idStr;
 import neo.idlib.math.Angles.idAngles;
 import neo.idlib.math.Math_h.idMath;
@@ -20,6 +21,7 @@ public class Quat {
      * <p>
      * ===============================================================================
      */
+    @OperatorOverloading
     public static class idQuat {
 //        public:
 
@@ -98,11 +100,11 @@ public class Quat {
             return this;
         }
 
-        public idQuat oPlus(final idQuat a) {
+        public idQuat operator+(final idQuat a) {
             return new idQuat(x + a.x, y + a.y, z + a.z, w + a.w);
         }
 
-        public idQuat oPluSet(final idQuat a) {
+        public idQuat operator+=(final idQuat a) {
             x += a.x;
             y += a.y;
             z += a.z;
@@ -111,11 +113,11 @@ public class Quat {
             return this;
         }
 
-        public idQuat oMinus(final idQuat a) {
+        public idQuat operator-(final idQuat a) {
             return new idQuat(x - a.x, y - a.y, z - a.z, w - a.w);
         }
 
-        public idQuat oMinSet(final idQuat a) {
+        public idQuat operator-=(final idQuat a) {
             x -= a.x;
             y -= a.y;
             z -= a.z;
@@ -124,7 +126,7 @@ public class Quat {
             return this;
         }
 
-        public idQuat oMultiply(final idQuat a) {
+        public idQuat operator*(final idQuat a) {
             return new idQuat(
                     w * a.x + x * a.w + y * a.z - z * a.y,
                     w * a.y + y * a.w + z * a.x - x * a.z,
@@ -132,7 +134,7 @@ public class Quat {
                     w * a.w - x * a.x - y * a.y - z * a.z);
         }
 
-        public idVec3 oMultiply(final idVec3 a) {
+        public idVec3 operator*(final idVec3 a) {
 //#if 0
             // it's faster to do the conversion to a 3x3 matrix and multiply the vector by this 3x3 matrix
 //            return (ToMat3() * a);
@@ -155,17 +157,17 @@ public class Quat {
 //#endif
         }
 
-        public idQuat oMultiply(float a) {
+        public idQuat operator*(float a) {
             return new idQuat(x * a, y * a, z * a, w * a);
         }
 
-        public idQuat oMulSet(final idQuat a) {
-            this.oSet(this.oMultiply(a));
+        public idQuat operator*=(final idQuat a) {
+            this.oSet(this * a);
 
             return this;
         }
 
-        public idQuat oMulSet(float a) {
+        public idQuat operator*=(float a) {
             x *= a;
             y *= a;
             z *= a;
@@ -176,11 +178,11 @@ public class Quat {
 //
 
         public static idQuat oMultiply(final float a, final idQuat b) {
-            return b.oMultiply(a);
+            return b * a;
         }
 
         public static idVec3 oMultiply(final idVec3 a, final idQuat b) {
-            return b.oMultiply(a);
+            return b * a;
         }
 //
 
@@ -423,7 +425,7 @@ public class Quat {
                 scale1 = t;
             }
 
-            this.oSet(from.oMultiply(scale0).oPlus(temp.oMultiply(scale1)));
+            this.oSet(from * scale0 + temp * scale1);
             return this;
         }
     }

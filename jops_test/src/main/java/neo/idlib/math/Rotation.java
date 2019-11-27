@@ -1,5 +1,6 @@
 package neo.idlib.math;
 
+import com.bla.annotation.OperatorOverloading;
 import neo.idlib.math.Angles.idAngles;
 import neo.idlib.math.Math_h.idMath;
 import neo.idlib.math.Matrix.idMat3;
@@ -13,6 +14,7 @@ import static neo.idlib.math.Math_h.DEG2RAD;
  */
 public class Rotation {
 
+    @OperatorOverloading
     public static class idRotation {
 
         //private:
@@ -102,14 +104,14 @@ public class Rotation {
 //
 //	idRotation			operator-() const;										// flips rotation
 
-        public idRotation oMultiply(final float s) {// scale rotation
+        public idRotation operator*(final float s) {// scale rotation
             return new idRotation(origin, vec, angle * s);
         }
 //	idRotation			operator/( const float s ) const;						// scale rotation
 //	idRotation &		operator*=( const float s );							// scale rotation
 //	idRotation &		operator/=( const float s );							// scale rotation
 
-        public idVec3 oMultiply(final idVec3 v) {// rotate vector
+        public idVec3 operator*(final idVec3 v) {// rotate vector
             if (!axisValid) {
                 ToMat3();
             }
@@ -189,7 +191,7 @@ public class Rotation {
             if (!axisValid) {
                 ToMat3();
             }
-            point.oSet((point - origin).oMultiply(axis) + origin);
+            point.oSet((point - origin) * axis + origin);
         }
 
         public void Normalize180() {

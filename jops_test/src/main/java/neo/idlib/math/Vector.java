@@ -86,6 +86,7 @@ public class Vector {
     //	idVec2 - 2D vector
     //
     //===============================================================
+    @OperatorOverloading
     public static class idVec2 implements SERiAL {
 
         public static final transient int SIZE  = 2 * Float.SIZE;
@@ -142,29 +143,24 @@ public class Vector {
         }
 //public	idVec2			operator-() const;
 
-        //public	float			operator*( const idVec2 &a ) const;
-        public float oMultiply(final idVec2 a) {
+        public float operator*(final idVec2 a) {
             return this.x * a.x + this.y * a.y;
         }
 
-        //public	idVec2			operator*( const float a ) const;
-        public idVec2 oMultiply(final float a) {
+        public idVec2 operator*(final float a) {
             return new idVec2(this.x * a, this.y * a);
         }
-//public	idVec2			operator/( const float a ) const;
 
-        public idVec2 oDivide(final float a) {
+        public idVec2 operator/(final float a) {
             float inva = 1.0f / a;
             return new idVec2(x * inva, y * inva);
         }
 
-        //public	idVec2			operator+( const idVec2 &a ) const;
-        public idVec2 oPlus(final idVec2 a) {
+        public idVec2 operator+(final idVec2 a) {
             return new idVec2(this.x + a.x, this.y + a.y);
         }
 
-        //public	idVec2			operator-( const idVec2 &a ) const;
-        public idVec2 oMinus(final idVec2 a) {
+        public idVec2 operator-(final idVec2 a) {
             return new idVec2(this.x - a.x, this.y - a.y);
         }
 
@@ -328,7 +324,7 @@ public class Vector {
             } else if (l >= 1.0f) {
                 this.oSet(v2);//( * this) = v2;
             } else {
-                this.oSet((v2.oMinus(v1)).oMultiply(l).oPlus(v1));//( * this) = v1 + l * (v2 - v1);
+                this.oSet(v1 + (v2 - v1) * l);
             }
         }
 
@@ -442,11 +438,11 @@ public class Vector {
         }
 
         public idVec3 operator*(final idRotation a) {
-            return a.oMultiply(this);
+            return a * this;
         }
 
         public idVec3 operator*(final idMat4 a) {
-            return a.oMultiply(this);
+            return a * this;
         }
 
         public idVec3 operator/(final float a) {
@@ -496,7 +492,7 @@ public class Vector {
         }
 
         public idVec3 operator*=(final idRotation rotation) {
-            this.oSet(rotation.oMultiply(this));
+            this.oSet(rotation * this);
             return this;
         }
 
@@ -1164,6 +1160,7 @@ public class Vector {
     //	idVec4 - 4D vector
     //
     //===============================================================
+    @OperatorOverloading
     public static class idVec4 implements SERiAL {
 
         public static final transient int SIZE  = 4 * Float.SIZE;
@@ -1208,24 +1205,24 @@ public class Vector {
         //public	float			operator[]( final  int index ) final ;
 //public	float &			operator[]( final  int index );
 //public	idVec4			operator-() final ;
-        public float oMultiply(final idVec4 a) {
+        public float operator*(final idVec4 a) {
             return x * a.x + y * a.y + z * a.z + w * a.w;
         }
 
-        public idVec4 oMultiply(final float a) {
+        public idVec4 operator*(final float a) {
             return new idVec4(this.x * a, this.y * a, this.z * a, this.w * a);
         }
 
         public idVec4 oMultiply(final Float a) {//for our reflection method
-            return oMultiply(a.floatValue());
+            return this * a.floatValue();
         }
 //public	idVec4			operator/( final  float a ) final ;
 
-        public idVec4 oPlus(final idVec4 a) {
+        public idVec4 operator+(final idVec4 a) {
             return new idVec4(this.x + a.x, this.y + a.y, this.z + a.z, this.w + a.w);
         }
 
-        public idVec4 oMinus(final idVec4 a) {
+        public idVec4 operator-(final idVec4 a) {
             return new idVec4(this.x - a.x, this.y - a.y, this.z - a.z, this.w - a.w);
         }
 
@@ -1267,9 +1264,8 @@ public class Vector {
                     break;
             }
         }
-//public	idVec4 &		operator+=( final  idVec4 &a );
 
-        public idVec4 oPluSet(final idVec4 a) {
+        public idVec4 operator+=(final idVec4 a) {
             this.x += a.x;
             this.y += a.y;
             this.z += a.z;
