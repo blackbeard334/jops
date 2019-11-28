@@ -9,6 +9,7 @@ import com.sun.source.util.Plugin;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Kinds;
@@ -18,6 +19,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.comp.Operators;
 import com.sun.tools.javac.comp.Todo;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
@@ -28,6 +30,7 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
 
+import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -58,7 +61,7 @@ import static com.sun.tools.javac.tree.JCTree.JCParens;
 import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
-/** @version 0.78.4 */
+/** @version 0.79 */
 public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
@@ -72,8 +75,12 @@ public class BlaPlugin implements Plugin {
     /** just a list of all the classes we already checked. is extra important when we scan .class files */
     private static Set<Symbol>                               checkedClasses    = new HashSet<>();
 
-    /** consider this an autowire. the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
-    static Symtab symtab;
+    /** consider this the autowire section. the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
+    static Symtab              symtab;
+    static Operators           operators;
+    static Log                 log;
+    static JavacTrees          javacTrees;
+    static CompilationUnitTree currentCompilationUnit;
 
     @Override
     public String getName() {
@@ -83,8 +90,11 @@ public class BlaPlugin implements Plugin {
     @Override
     public void init(JavacTask task, String... args) {
         Context context = ((BasicJavacTask) task).getContext();
-        Log.instance(context).printRawLines("Yow!!!!1One");
+        log = Log.instance(context);
+        log.printRawLines("Yow!!!!1One");
         symtab = Symtab.instance(context);
+        operators = Operators.instance(context);
+        javacTrees = JavacTrees.instance(context);
 
         MultiTaskListener.instance(context);
         task.addTaskListener(new TaskListener() {
@@ -92,8 +102,6 @@ public class BlaPlugin implements Plugin {
             public void started(TaskEvent e) {
                 if (e.getKind() != PARSE) return;
 
-
-//                CompilationUnitTree bla = new JCTree.JCCompilationUnit();
                 JavaFileObject sourceFile = e.getSourceFile();
                 if (sourceFile instanceof BlaSimpleJavaFileObject) {
                     int x = 0;
@@ -115,7 +123,7 @@ public class BlaPlugin implements Plugin {
                 } catch (IOException ex) {
                     ex.printStackTrace();
                 }
-                Log.instance(context).printRawLines(sourceFile.getName());
+                log.printRawLines(sourceFile.getName());
             }
 
             private boolean todosInit = true;
@@ -156,13 +164,13 @@ public class BlaPlugin implements Plugin {
                          *   iii-TODO would replacing pre-compilation be better performance-wise!?
                          * 3-a corner case that import scanning wouldn't be able to find is overloaded operations within the defining class, so the imports should just be implied then I guess
                          */
-                        final CompilationUnitTree compilationUnit = e.getCompilationUnit();
-                        compilationUnit.getImports().stream()
+                        currentCompilationUnit = e.getCompilationUnit();
+                        currentCompilationUnit.getImports().stream()
                                 .map(ImportTree::getQualifiedIdentifier)
                                 .map(JCTree.JCFieldAccess.class::cast)
                                 .filter(i -> isOverloadedType(i.name))
                                 .forEach(i -> nameTypeMap.put(i.name, i.type.tsym.name)); //TODO init list with imports, and figure out how to reach da root elementz
-                        final List<? extends Tree> typeDecls = compilationUnit.getTypeDecls();
+                        final List<? extends Tree> typeDecls = currentCompilationUnit.getTypeDecls();
                         typeDecls.forEach(BlaPlugin::bla);
 
 //                //TODO scan imports for overloaded classes
@@ -177,7 +185,6 @@ public class BlaPlugin implements Plugin {
                 Field MaxErrors = null;
                 try {
                     final Todo todos = Todo.instance(context);
-                    final Log log = Log.instance(context);
 
                     MaxErrors = log.getClass().getDeclaredField("MaxErrors");
                     MaxErrors.setAccessible(true);
@@ -573,14 +580,29 @@ public class BlaPlugin implements Plugin {
                 // return new method invoke
                 final OJCFieldAccess overriddenMethod = new OJCFieldAccess(left, method.methodName, method.getSym());
                 return new OJCMethodInvocation(null, overriddenMethod, com.sun.tools.javac.util.List.of(right));
+            } else if (expression.getTag() != JCTree.Tag.NE && expression.getTag() != JCTree.Tag.EQ) {
+                final String message = String.format("%s::operator%s(%s) isn't overloaded!", overloadedClass.getName(), getOperatorName(expression.getTag()), right.type.tsym.name);
+                printErrorMessageAtSourceLocation(Diagnostic.Kind.ERROR, expression, message);
             }
             // if type has binary.getOperator() && binary.rhs is the correct param type
         }
 
-        if (expression.type.tsym.kind == Kinds.Kind.ERR && left.type instanceof Type.JCPrimitiveType) {
+        if (expression.type.tsym.kind == Kinds.Kind.ERR && left.type instanceof Type.JCPrimitiveType && right.type instanceof Type.JCPrimitiveType) {
             setPrimitiveOperationType((Type.JCPrimitiveType) left.type, (Type.JCPrimitiveType) right.type, expression);
         }
         return expression;
+    }
+
+    /** this method outputs the message at the correct location in the file being compiled */
+    private static void printErrorMessageAtSourceLocation(final Diagnostic.Kind kind, final JCTree.JCOperatorExpression expression, final String message) {
+        javacTrees.printMessage(kind, message, expression, currentCompilationUnit);
+    }
+
+    private static String getOperatorName(JCTree.Tag tag) {
+        if (tag.isAssignop()) {
+            return operators.operatorName(tag.noAssignOp()).toString() + "=";
+        }
+        return operators.operatorName(tag).toString();
     }
 
     /**

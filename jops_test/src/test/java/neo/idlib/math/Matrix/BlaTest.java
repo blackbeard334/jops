@@ -126,4 +126,12 @@ public class BlaTest {
         c *= (e * (a * b) / e);
         assertEquals(14, c.x, 0);
     }
+
+//    //this test should throw a compilation error that *= isn't overloaded
+//    @Test
+//    public void blaCompilationException() {
+//        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+//        Vector.idVec3 b = null;
+//        a *= b;
+//    }
 }
