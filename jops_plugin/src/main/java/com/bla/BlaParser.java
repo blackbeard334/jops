@@ -1,8 +1,6 @@
 package com.bla;
 
 import com.bla.annotation.OperatorOverloading;
-import com.sun.tools.javac.parser.Parser;
-import com.sun.tools.javac.tree.JCTree;
 
 /**
  * check for annotation
@@ -18,7 +16,7 @@ import com.sun.tools.javac.tree.JCTree;
  * *return type present
  * *find a way to rename compilation errors back to their operator+ variants instead of oPlus
  */
-public class BlaParser implements Parser {
+public class BlaParser {
     private static final String  OVERLOADING_IMPORT     = OperatorOverloading.class.getName();
     private static final String  OVERLOADING_ANNOTATION = OperatorOverloading.ANNOTATION;
     private static final boolean DEBUG                  = false;
@@ -124,25 +122,5 @@ public class BlaParser implements Parser {
         StringBuilder temp = new StringBuilder(src);
         temp.replace(position, position + len, str);
         return temp.toString();
-    }
-
-    @Override
-    public JCTree.JCCompilationUnit parseCompilationUnit() {
-        return null;
-    }
-
-    @Override
-    public JCTree.JCExpression parseExpression() {
-        return null;
-    }
-
-    @Override
-    public JCTree.JCStatement parseStatement() {
-        return null;
-    }
-
-    @Override
-    public JCTree.JCExpression parseType() {
-        return null;
     }
 }

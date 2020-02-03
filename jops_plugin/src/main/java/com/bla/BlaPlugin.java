@@ -1,6 +1,5 @@
 package com.bla;
 
-import com.bla.annotation.OperatorOverloading;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.Tree;
@@ -11,7 +10,6 @@ import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.api.MultiTaskListener;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -21,7 +19,6 @@ import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.Operators;
 import com.sun.tools.javac.comp.Todo;
-import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAssignOp;
 import com.sun.tools.javac.tree.JCTree.JCBinary;
@@ -34,7 +31,6 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.nio.Buffer;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,7 +42,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.bla.BlaTest.BlaSimpleJavaFileObject;
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
 import static com.sun.tools.javac.tree.JCTree.JCAssign;
 import static com.sun.tools.javac.tree.JCTree.JCBlock;
@@ -66,14 +61,14 @@ public class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
     /** here we store the files that were changed BEFORE the PARSE stage */
-    private static List<JavaFileObject>                      changedFiles      = new ArrayList<>();
+    private static List<JavaFileObject>       changedFiles      = new ArrayList<>();
     /** this map contains variable/param/...etc names, coupled with the name of their respective types. very helpful when we traverse trees, and no longer know what the out of scope variable type is */
-    private static Map<Name, Name>                           nameTypeMap       = new HashMap<>();//TODO would using name instead of type use for different types with the same name?
-    private static Map<Name, Symbol>                         nameClassMap      = new HashMap<>();
+    private static Map<Name, Name>            nameTypeMap       = new HashMap<>();//TODO would using name instead of type use for different types with the same name?
+    private static Map<Name, Symbol>          nameClassMap      = new HashMap<>();
     /** a map of all the classes with operator overloading. the value contains all the overloaded methods for said class */
-    private static Map<Name, BlaVerifier.BlaOverloadedClass> overloadedClasses = new HashMap<>();
+    private static Map<Name, OverloadedClass> overloadedClasses = new HashMap<>();
     /** just a list of all the classes we already checked. is extra important when we scan .class files */
-    private static Set<Symbol>                               checkedClasses    = new HashSet<>();
+    private static Set<Symbol>                checkedClasses    = new HashSet<>();
 
     /** consider this the autowire section. the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
     static Symtab              symtab;
@@ -103,9 +98,6 @@ public class BlaPlugin implements Plugin {
                 if (e.getKind() != PARSE) return;
 
                 JavaFileObject sourceFile = e.getSourceFile();
-                if (sourceFile instanceof BlaSimpleJavaFileObject) {
-                    int x = 0;
-                }
                 /**
                  * if we read from disk, then we need to point to a different file
                  * * or we could reflect and replace e.getSourceFile()
@@ -117,7 +109,7 @@ public class BlaPlugin implements Plugin {
                     BlaParser blaParser = new BlaParser(src.toString());
                     if (blaParser.hasOverloadingShallow()) {
                         final String confusion = blaParser.parseAndReplace();
-                        updateClientFileObject(sourceFile, src, CharBuffer.wrap(confusion.toCharArray()));
+                        Utils.updateClientFileObject(src, CharBuffer.wrap(confusion.toCharArray()), sourceFile);
                         changedFiles.add(sourceFile);
                     }
                 } catch (IOException ex) {
@@ -132,12 +124,11 @@ public class BlaPlugin implements Plugin {
             public void finished(TaskEvent e) {
                 switch (e.getKind()) {
                     case PARSE: {
-                        final BlaVerifier blaVerifier = new BlaVerifier(e.getCompilationUnit());
                         if (changedFiles.contains(e.getSourceFile())) {
-                            if (!blaVerifier.isValid()) {
+                            if (!SourceVerifier.isValid(e.getCompilationUnit())) {
 //                        changedFiles.remove(uri);//TODO
                             } else {
-                                blaVerifier.getOverloadedClasses().forEach(clazz -> overloadedClasses.put(clazz.name, clazz));
+                                SourceVerifier.getOverloadedClasses(e.getCompilationUnit()).forEach(clazz -> overloadedClasses.put(clazz.name, clazz));
                             }
                         }
                         break;
@@ -383,7 +374,7 @@ public class BlaPlugin implements Plugin {
                     .filter(sym -> ((Type.MethodType) sym.type).argtypes.size() == methodInvocation.args.size())
                     .filter(sym -> {
                         for (int i = 0; i < methodInvocation.args.size(); i++) {
-                            if (!BlaVerifier.BlaOverloadedClass.isLinealMatch(((Type.MethodType) sym.type).argtypes.get(i), methodInvocation.args.get(i).type)) {
+                            if (!OverloadedClass.isLinealMatch(((Type.MethodType) sym.type).argtypes.get(i), methodInvocation.args.get(i).type)) {
                                 return false;
                             }
                         }
@@ -397,7 +388,7 @@ public class BlaPlugin implements Plugin {
     private static Name getReturnTypeName(JCVariableDecl variableDecl) {
         final JCTree type = variableDecl.getType();
         if (type instanceof JCTree.JCPrimitiveTypeTree) {
-            return BlaVerifier.getPrimitiveType((JCTree.JCPrimitiveTypeTree) type);
+            return Utils.getPrimitiveType((JCTree.JCPrimitiveTypeTree) type);
         }
         if (type instanceof JCTree.JCIdent) {
             final JCTree.JCIdent ident = (JCTree.JCIdent) type;
@@ -417,83 +408,6 @@ public class BlaPlugin implements Plugin {
 
     private static boolean isOverloadedType(JCTree.JCIdent ident) {
         return isOverloadedType(ident.getName());
-    }
-
-    private boolean updateClientFileObject(final JavaFileObject sourceFile, CharBuffer originalSourceCode, final CharBuffer replacedSourceCode) {
-        Field fileManagerField = null;
-        Field hbField = null, offsetField = null, readOnlyField = null, markField = null, positionField = null, limitField = null, capacityField = null, addessField = null;
-        try {
-            fileManagerField = sourceFile.getClass().getSuperclass().getDeclaredField("fileManager");
-            fileManagerField.setAccessible(true);
-            JavacFileManager fileManagerObject = (JavacFileManager) fileManagerField.get(sourceFile);
-            fileManagerObject.cache(sourceFile, replacedSourceCode);
-            {
-                /*
-                 The source is alraedy read at com.sun.tools.javac.main.JavaCompiler.parse(javax.tools.JavaFileObject)
-                 So we need to change it here
-                 */
-                hbField = CharBuffer.class.getDeclaredField("hb");
-                hbField.setAccessible(true);
-                hbField.set(originalSourceCode, hbField.get(replacedSourceCode));
-
-                offsetField = CharBuffer.class.getDeclaredField("offset");
-                offsetField.setAccessible(true);
-                offsetField.set(originalSourceCode, offsetField.get(replacedSourceCode));
-
-                readOnlyField = CharBuffer.class.getDeclaredField("isReadOnly");
-                readOnlyField.setAccessible(true);
-                readOnlyField.set(originalSourceCode, readOnlyField.get(replacedSourceCode));
-
-                {
-                    markField = Buffer.class.getDeclaredField("mark");
-                    markField.setAccessible(true);
-                    markField.set(originalSourceCode, markField.get(replacedSourceCode));
-
-                    positionField = Buffer.class.getDeclaredField("position");
-                    positionField.setAccessible(true);
-                    positionField.set(originalSourceCode, positionField.get(replacedSourceCode));
-
-                    limitField = Buffer.class.getDeclaredField("limit");
-                    limitField.setAccessible(true);
-                    limitField.set(originalSourceCode, limitField.get(replacedSourceCode));
-
-                    capacityField = Buffer.class.getDeclaredField("capacity");
-                    capacityField.setAccessible(true);
-                    capacityField.set(originalSourceCode, capacityField.get(replacedSourceCode));
-
-                    addessField = Buffer.class.getDeclaredField("address");
-                    addessField.setAccessible(true);
-                    addessField.set(originalSourceCode, addessField.get(replacedSourceCode));
-                }
-            }
-            return true;
-        } catch (NoSuchFieldException | IllegalAccessException ex) {
-            ex.printStackTrace();
-            return false;
-        } finally {
-            if (fileManagerField != null)
-                fileManagerField.setAccessible(false);
-            {
-                if (hbField != null)
-                    hbField.setAccessible(false);
-                if (offsetField != null)
-                    offsetField.setAccessible(false);
-                if (readOnlyField != null)
-                    readOnlyField.setAccessible(false);
-                {
-                    if (markField != null)
-                        markField.setAccessible(false);
-                    if (positionField != null)
-                        positionField.setAccessible(false);
-                    if (limitField != null)
-                        limitField.setAccessible(false);
-                    if (capacityField != null)
-                        capacityField.setAccessible(false);
-                    if (addessField != null)
-                        addessField.setAccessible(false);
-                }
-            }
-        }
     }
 
     private boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
@@ -534,10 +448,9 @@ public class BlaPlugin implements Plugin {
 
     private void loadNestedClasses(final Symbol classSymbol) {
         for (Symbol.ClassSymbol clazz : getNestedClasses((Symbol.ClassSymbol) classSymbol)) {
-            if (hasOperatorOverloadingAnnotation(clazz)) {
+            if (ClassVerifier.hasOperatorOverloadingAnnotation(clazz)) {
                 //parse and add to some list
-                BlaClassVerifier classVerifier = new BlaClassVerifier(clazz);
-                overloadedClasses.put(clazz.getSimpleName(), classVerifier.getOverloadedClass());
+                overloadedClasses.put(clazz.getSimpleName(), ClassVerifier.getOverloadedClass(clazz));
             }
             checkedClasses.add(clazz);
         }
@@ -557,24 +470,13 @@ public class BlaPlugin implements Plugin {
         return classes;
     }
 
-    private boolean hasOperatorOverloadingAnnotation(Symbol clazz) {
-        if (clazz.getMetadata() != null) {
-            final com.sun.tools.javac.util.List<Attribute.Compound> annotations = clazz.getMetadata().getDeclarationAttributes();
-            return annotations != null && annotations.stream()
-                    .map(Attribute.Compound::getAnnotationType)
-                    .map(Object::toString)
-                    .anyMatch(OperatorOverloading.class.getName()::equals);
-        }
-        return false;
-    }
-
     private static Tree parseOperatorExpression(JCTree.JCOperatorExpression expression) {
         final JCExpression left = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.LEFT);
         final JCExpression right = expression.getOperand(JCTree.JCOperatorExpression.OperandPos.RIGHT);
 
-        final BlaVerifier.BlaOverloadedClass overloadedClass = overloadedClasses.get(getReturnTypeName(left.type));
+        final OverloadedClass overloadedClass = overloadedClasses.get(getReturnTypeName(left.type));
         if (overloadedClass != null) {
-            final BlaVerifier.BlaOverloadedClass.BlaOverloadedMethod method = overloadedClass.getMethodPolyEdition(expression.getTag(), right.type);
+            final MethodInformation method = overloadedClass.getMethodPolyEdition(expression.getTag(), right.type);
 
             if (method != null) {
                 // return new method invoke
