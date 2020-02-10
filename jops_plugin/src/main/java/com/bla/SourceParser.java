@@ -16,7 +16,7 @@ import com.bla.annotation.OperatorOverloading;
  * *return type present
  * *find a way to rename compilation errors back to their operator+ variants instead of oPlus
  */
-public class BlaParser {
+public class SourceParser {
     private static final String  OVERLOADING_IMPORT     = OperatorOverloading.class.getName();
     private static final String  OVERLOADING_ANNOTATION = OperatorOverloading.ANNOTATION;
     private static final boolean DEBUG                  = false;
@@ -30,7 +30,7 @@ public class BlaParser {
     private final String noCommentsOrStrings;
     private final String noCommentsOrStringsOrWhiteSpace;
 
-    public BlaParser(final String sourceFile) {
+    public SourceParser(final String sourceFile) {
         this.sourceFile = sourceFile;
         noComments = stripComments(sourceFile);
         noCommentsOrStrings = stripStringLiterals(noComments);

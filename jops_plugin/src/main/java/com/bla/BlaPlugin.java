@@ -1,7 +1,6 @@
 package com.bla;
 
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
@@ -9,7 +8,6 @@ import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.JavacTrees;
-import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -34,13 +32,9 @@ import java.lang.reflect.Field;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
 import static com.sun.tools.javac.tree.JCTree.JCAssign;
@@ -57,25 +51,23 @@ import static com.sun.tools.javac.tree.JCTree.JCReturn;
 import static com.sun.tools.javac.tree.JCTree.JCStatement;
 
 /** @version 0.79 */
-public class BlaPlugin implements Plugin {
+public final class BlaPlugin implements Plugin {
     public static final String NAME = "BlaPlugin";
 
     /** here we store the files that were changed BEFORE the PARSE stage */
-    private static List<JavaFileObject>       changedFiles      = new ArrayList<>();
-    /** this map contains variable/param/...etc names, coupled with the name of their respective types. very helpful when we traverse trees, and no longer know what the out of scope variable type is */
-    private static Map<Name, Name>            nameTypeMap       = new HashMap<>();//TODO would using name instead of type use for different types with the same name?
-    private static Map<Name, Symbol>          nameClassMap      = new HashMap<>();
+    private static List<JavaFileObject>       overloadedSources = new ArrayList<>();
     /** a map of all the classes with operator overloading. the value contains all the overloaded methods for said class */
-    private static Map<Name, OverloadedClass> overloadedClasses = new HashMap<>();
-    /** just a list of all the classes we already checked. is extra important when we scan .class files */
-    private static Set<Symbol>                checkedClasses    = new HashSet<>();
+    static         Map<Name, OverloadedClass> overloadedClasses = new HashMap<>();
 
-    /** consider this the autowire section. the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
-    static Symtab              symtab;
-    static Operators           operators;
-    static Log                 log;
-    static JavacTrees          javacTrees;
-    static CompilationUnitTree currentCompilationUnit;
+    // consider this the autowire section.
+    /** the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
+    static         Symtab    symtab;
+    private static Operators operators;
+
+    /** we need this for logging */
+    private static Log                 log;
+    private static JavacTrees          javacTrees;
+    private static CompilationUnitTree currentCompilationUnit;
 
     @Override
     public String getName() {
@@ -84,165 +76,49 @@ public class BlaPlugin implements Plugin {
 
     @Override
     public void init(JavacTask task, String... args) {
-        Context context = ((BasicJavacTask) task).getContext();
+        final Context context = ((BasicJavacTask) task).getContext();
         log = Log.instance(context);
         log.printRawLines("Yow!!!!1One");
         symtab = Symtab.instance(context);
         operators = Operators.instance(context);
         javacTrees = JavacTrees.instance(context);
 
-        MultiTaskListener.instance(context);
-        task.addTaskListener(new TaskListener() {
-            @Override
-            public void started(TaskEvent e) {
-                if (e.getKind() != PARSE) return;
-
-                JavaFileObject sourceFile = e.getSourceFile();
-                /**
-                 * if we read from disk, then we need to point to a different file
-                 * * or we could reflect and replace e.getSourceFile()
-                 *
-                 * if it's in-memory, then reflection?
-                 */
-                try {
-                    final CharBuffer src = (CharBuffer) sourceFile.getCharContent(false);
-                    BlaParser blaParser = new BlaParser(src.toString());
-                    if (blaParser.hasOverloadingShallow()) {
-                        final String confusion = blaParser.parseAndReplace();
-                        Utils.updateClientFileObject(src, CharBuffer.wrap(confusion.toCharArray()), sourceFile);
-                        changedFiles.add(sourceFile);
-                    }
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-                log.printRawLines(sourceFile.getName());
-            }
-
-            private boolean todosInit = true;
-
-            @Override
-            public void finished(TaskEvent e) {
-                switch (e.getKind()) {
-                    case PARSE: {
-                        if (changedFiles.contains(e.getSourceFile())) {
-                            if (!SourceVerifier.isValid(e.getCompilationUnit())) {
-//                        changedFiles.remove(uri);//TODO
-                            } else {
-                                SourceVerifier.getOverloadedClasses(e.getCompilationUnit()).forEach(clazz -> overloadedClasses.put(clazz.name, clazz));
-                            }
-                        }
-                        break;
-                    }
-
-                    case ENTER:/*the dragon*/ {
-                        if (todosInit) {
-                            todosInit();
-                        }
-                        loadClassFiles(e);
-                        if (!hasOverloadedClassesImported(e.getCompilationUnit())) {
-                            return;//TODO add some kind of extra check for same package classes taht don't require an import
-                        }
-
-                        /**
-                         * 1-we need a list of valid overloaded classes
-                         * 2-we then check every class for the imports
-                         *  a-only parse the classes with overridden imports
-                         *  b-create a list of all the imported overridden classes to compare with
-                         *  c-scan every type I guess?
-                         *  d-and replace the binary tree with equivalents operations
-                         *   i-we need to check parameter types and such
-                         *   ii-return types could be important for chained calls
-                         *   iii-TODO would replacing pre-compilation be better performance-wise!?
-                         * 3-a corner case that import scanning wouldn't be able to find is overloaded operations within the defining class, so the imports should just be implied then I guess
-                         */
-                        currentCompilationUnit = e.getCompilationUnit();
-                        currentCompilationUnit.getImports().stream()
-                                .map(ImportTree::getQualifiedIdentifier)
-                                .map(JCTree.JCFieldAccess.class::cast)
-                                .filter(i -> isOverloadedType(i.name))
-                                .forEach(i -> nameTypeMap.put(i.name, i.type.tsym.name)); //TODO init list with imports, and figure out how to reach da root elementz
-                        final List<? extends Tree> typeDecls = currentCompilationUnit.getTypeDecls();
-                        typeDecls.forEach(BlaPlugin::bla);
-
-//                //TODO scan imports for overloaded classes
-//                int a = 0;//TODO change the name/path back after compilation?
-                    }
-                    default:
-                        break;//skip
-                }
-            }
-
-            private void todosInit() {
-                Field MaxErrors = null;
-                try {
-                    final Todo todos = Todo.instance(context);
-
-                    MaxErrors = log.getClass().getDeclaredField("MaxErrors");
-                    MaxErrors.setAccessible(true);
-                    final int prevMaxErrors = MaxErrors.getInt(log);
-
-                    //temp disable logging
-                    MaxErrors.set(log, 0);
-
-                    for (Env<AttrContext> todo : todos) {
-                        Attr.instance(context).attrib(todo);
-                        int a = 0;
-                    }
-
-                    //re-enable error logging
-                    MaxErrors.set(log, prevMaxErrors);
-                } catch (NoSuchFieldException | IllegalAccessException ex) {
-                    ex.printStackTrace();
-                } finally {
-                    if (MaxErrors != null)
-                        MaxErrors.setAccessible(false);
-                    todosInit = false;
-                }
-            }
-        });
+        task.addTaskListener(new MyTaskListener(context));
     }
 
-
-    private static Tree bla(Tree tree) {
+    private static Tree parse(Tree tree) {
         //JCVariableDecl--> int i; means that the init part is null
         if (tree == null) return null;
 
         switch (tree.getClass().getSimpleName()) {
             case "JCClassDecl":
                 JCClassDecl classDecl = (JCClassDecl) tree;
-                nameTypeMap.put(((JCClassDecl) tree).name.table.names._this, classDecl.name);//TODO is there an easier way to do this?
-                classDecl.defs.forEach(BlaPlugin::bla);
+                classDecl.defs.forEach(BlaPlugin::parse);
                 break;
             case "JCVariableDecl":
                 JCVariableDecl variableDecl = (JCVariableDecl) tree;
-                //names can be reused across different classes, so remove it just in case
-                nameTypeMap.remove(variableDecl.getName()); //TODO maybe we should push/pop this just in case some class with a variable 'm' calls an external class with a reused name? is that even possible...
-                nameTypeMap.put(variableDecl.getName(), getReturnTypeName(variableDecl));
-                variableDecl.init = (JCExpression) bla(variableDecl.init);
+                variableDecl.init = (JCExpression) parse(variableDecl.init);
                 break;
             case "JCMethodDecl":
                 JCMethodDecl methodDecl = (JCMethodDecl) tree;
-                methodDecl.getParameters()
-                        .forEach(p -> nameTypeMap.put(p.getName(), getReturnTypeName(p)));
-                methodDecl.body = (JCBlock) bla(methodDecl.body);
+                methodDecl.body = (JCBlock) parse(methodDecl.body);
                 break;
             case "JCBinary": //TODO check opcodes and types
                 JCBinary binary = (JCBinary) tree;
-                binary.lhs = (JCExpression) bla(binary.lhs);
-                binary.rhs = (JCExpression) bla(binary.rhs);
-                //TODO wait for the recursive calls to return to know all the return values
+                binary.lhs = (JCExpression) parse(binary.lhs);
+                binary.rhs = (JCExpression) parse(binary.rhs);
                 return parseOperatorExpression(binary);
             case "JCBlock":
                 JCBlock block = (JCBlock) tree;
-                block.stats.forEach(BlaPlugin::bla);
+                block.stats.forEach(BlaPlugin::parse);
                 break;
             case "JCMethodInvocation": //method params can be (a + b)
                 JCMethodInvocation methodInvocation = (JCMethodInvocation) tree;
                 methodInvocation.args = methodInvocation.args.stream()
-                        .map(BlaPlugin::bla)
+                        .map(BlaPlugin::parse)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
-                methodInvocation.meth = (JCExpression) bla(methodInvocation.meth);
+                methodInvocation.meth = (JCExpression) parse(methodInvocation.meth);
                 /**
                  * methodInvocation.meth instanceof
                  * JCIdent if static import or called with this.bla()
@@ -259,11 +135,10 @@ public class BlaPlugin implements Plugin {
                         meth.type = ((JCTree.JCIdent) meth).sym.type;
                     }
                 }
-//                methodInvocation.meth = (JCExpression) bla(methodInvocation.meth);
                 break;
             case "JCParens":
                 JCParens parens = (JCParens) tree;
-                parens.expr = (JCExpression) bla(parens.expr);
+                parens.expr = (JCExpression) parse(parens.expr);
                 JCExpression expr = parens.expr;
                 if (expr instanceof OJCParens ||
                         expr instanceof JCMethodInvocation ||
@@ -282,46 +157,45 @@ public class BlaPlugin implements Plugin {
                 break;
             case "JCExpressionStatement":
                 JCExpressionStatement expressionStatement = (JCExpressionStatement) tree;
-                expressionStatement.expr = (JCExpression) bla(expressionStatement.expr);
+                expressionStatement.expr = (JCExpression) parse(expressionStatement.expr);
                 break;
             case "JCReturn":
                 JCReturn jcReturn = (JCReturn) tree;
-                jcReturn.expr = (JCExpression) bla(jcReturn.expr);
-//                jcReturn.type = jcReturn.expr == null ? BlaPlugin.symtab.voidType : jcReturn.expr.type;
+                jcReturn.expr = (JCExpression) parse(jcReturn.expr);
                 break;
             case "JCAssign": //a unique annoying fucking case
                 JCAssign assign = (JCAssign) tree;
-                assign.lhs = (JCExpression) bla(assign.lhs);
-                assign.rhs = (JCExpression) bla(assign.rhs);
+                assign.lhs = (JCExpression) parse(assign.lhs);
+                assign.rhs = (JCExpression) parse(assign.rhs);
                 break;
             case "JCAssignOp":
                 JCAssignOp assignOp = (JCAssignOp) tree;
-                assignOp.lhs = (JCExpression) bla(assignOp.lhs);
-                assignOp.rhs = (JCExpression) bla(assignOp.rhs);
+                assignOp.lhs = (JCExpression) parse(assignOp.lhs);
+                assignOp.rhs = (JCExpression) parse(assignOp.rhs);
                 return parseOperatorExpression(assignOp);
             case "JCIf":
                 JCIf jcIf = (JCIf) tree;
-                jcIf.cond = (JCExpression) bla(jcIf.cond);
-                jcIf.thenpart = (JCStatement) bla(jcIf.thenpart);
-                jcIf.elsepart = (JCStatement) bla(jcIf.elsepart);
+                jcIf.cond = (JCExpression) parse(jcIf.cond);
+                jcIf.thenpart = (JCStatement) parse(jcIf.thenpart);
+                jcIf.elsepart = (JCStatement) parse(jcIf.elsepart);
                 break;
             case "JCForLoop":
                 JCForLoop forLoop = (JCForLoop) tree;
                 forLoop.init = forLoop.init.stream()
-                        .map(BlaPlugin::bla)
+                        .map(BlaPlugin::parse)
                         .map(JCStatement.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
-                forLoop.cond = (JCExpression) bla(forLoop.cond);
+                forLoop.cond = (JCExpression) parse(forLoop.cond);
                 forLoop.step = forLoop.step.stream()
-                        .map(BlaPlugin::bla)
+                        .map(BlaPlugin::parse)
                         .map(JCExpressionStatement.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
-                forLoop.body = (JCStatement) bla(forLoop.body);
+                forLoop.body = (JCStatement) parse(forLoop.body);
                 break;
 
             case "JCFieldAccess":
                 JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) tree;
-                fieldAccess.selected = (JCExpression) bla(fieldAccess.selected);
+                fieldAccess.selected = (JCExpression) parse(fieldAccess.selected);
                 if (fieldAccess.selected instanceof JCMethodInvocation && fieldAccess.sym.type instanceof Type.MethodType) {
                     fieldAccess.type = fieldAccess.sym.type.getReturnType();
                 }
@@ -336,18 +210,18 @@ public class BlaPlugin implements Plugin {
                 break;
             case "JCUnary":
                 JCTree.JCUnary jcUnary = (JCTree.JCUnary) tree;
-                jcUnary.arg = (JCExpression) bla(jcUnary.arg);
+                jcUnary.arg = (JCExpression) parse(jcUnary.arg);
                 if (jcUnary.type.tsym.kind == Kinds.Kind.ERR)
                     jcUnary.type = jcUnary.arg.type;
                 break;
             case "JCTypeCast":
                 JCTree.JCTypeCast typeCast = (JCTree.JCTypeCast) tree;
-                typeCast.expr = (JCExpression) bla(typeCast.expr);
+                typeCast.expr = (JCExpression) parse(typeCast.expr);
                 break;
             case "JCNewClass":
                 JCTree.JCNewClass jcNewClass = (JCTree.JCNewClass) tree;
                 jcNewClass.args = jcNewClass.args.stream()
-                        .map(BlaPlugin::bla)
+                        .map(BlaPlugin::parse)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
                 if (jcNewClass.constructorType.tsym.kind == Kinds.Kind.ERR) {
@@ -374,7 +248,7 @@ public class BlaPlugin implements Plugin {
                     .filter(sym -> ((Type.MethodType) sym.type).argtypes.size() == methodInvocation.args.size())
                     .filter(sym -> {
                         for (int i = 0; i < methodInvocation.args.size(); i++) {
-                            if (!OverloadedClass.isLinealMatch(((Type.MethodType) sym.type).argtypes.get(i), methodInvocation.args.get(i).type)) {
+                            if (!Utils.isLinealMatch(((Type.MethodType) sym.type).argtypes.get(i), methodInvocation.args.get(i).type)) {
                                 return false;
                             }
                         }
@@ -383,91 +257,6 @@ public class BlaPlugin implements Plugin {
                     .findAny()
                     .orElseThrow(() -> new RuntimeException(new NoSuchMethodException()));
         }
-    }
-
-    private static Name getReturnTypeName(JCVariableDecl variableDecl) {
-        final JCTree type = variableDecl.getType();
-        if (type instanceof JCTree.JCPrimitiveTypeTree) {
-            return Utils.getPrimitiveType((JCTree.JCPrimitiveTypeTree) type);
-        }
-        if (type instanceof JCTree.JCIdent) {
-            final JCTree.JCIdent ident = (JCTree.JCIdent) type;
-            if (ident.sym != null)//JCNewClass has no symbology..TODO unlikely, but what if we only have JCNewClass for everything???
-                nameClassMap.put(ident.getName(), ident.sym);
-            return ident.getName();
-        }
-        if (type instanceof JCTree.JCArrayTypeTree) {
-            return symtab.arraysType.tsym.name;
-        }
-        return getReturnTypeName(((JCExpression) type).type);
-    }
-
-    private static boolean isOverloadedType(Name name) {//TODO rename
-        return overloadedClasses.containsKey(name);
-    }
-
-    private static boolean isOverloadedType(JCTree.JCIdent ident) {
-        return isOverloadedType(ident.getName());
-    }
-
-    private boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
-        /*TODO how do we check files in the same package that don't require imports
-            since we can't always rely on imports for stuff in same package:
-            ((Scope.ScopeImpl) ((JCTree.JCPackageDecl) e.getCompilationUnit().getPackage()).packge.members()).table
-         */
-        return hasOverloadedImport(compilationUnit) || hasOverloadedPackageMate(compilationUnit);
-    }
-
-    private boolean hasOverloadedImport(CompilationUnitTree compilationUnit) {
-        return compilationUnit.getImports().stream()
-                .map(ImportTree::getQualifiedIdentifier)
-                .map(JCTree.JCFieldAccess.class::cast)
-                .map(JCTree.JCFieldAccess::getIdentifier)
-                .anyMatch(BlaPlugin::isOverloadedType);
-    }
-
-    private boolean hasOverloadedPackageMate(CompilationUnitTree compilationUnit) {
-        for (Symbol symbol : ((JCTree.JCPackageDecl) compilationUnit.getPackage()).packge.members().getSymbols()) {
-            if (BlaPlugin.isOverloadedType(symbol.getSimpleName()))
-                return true;
-        }
-        return false;
-    }
-
-
-    /** this method checks all class files for possible classes with our overloading annotation */
-    private void loadClassFiles(TaskEvent e) {
-        for (Symbol packge : ((JCTree.JCCompilationUnit) e.getCompilationUnit()).modle.getEnclosedElements()) {
-            for (Symbol clazz : ((Symbol.PackageSymbol) packge).members_field.getSymbols()) {
-                if (checkedClasses.contains(clazz) || isOverloadedType(clazz.getSimpleName())) continue;
-
-                loadNestedClasses(clazz);
-            }
-        }
-    }
-
-    private void loadNestedClasses(final Symbol classSymbol) {
-        for (Symbol.ClassSymbol clazz : getNestedClasses((Symbol.ClassSymbol) classSymbol)) {
-            if (ClassVerifier.hasOperatorOverloadingAnnotation(clazz)) {
-                //parse and add to some list
-                overloadedClasses.put(clazz.getSimpleName(), ClassVerifier.getOverloadedClass(clazz));
-            }
-            checkedClasses.add(clazz);
-        }
-    }
-
-    private List<Symbol.ClassSymbol> getNestedClasses(final Symbol.ClassSymbol clazz) {
-        List<Symbol.ClassSymbol> classes = new ArrayList<>();
-        classes.add(clazz);
-
-        classes.addAll(clazz.getEnclosedElements().stream()
-                .filter(Symbol.ClassSymbol.class::isInstance)
-                .map(Symbol.ClassSymbol.class::cast)
-                .map(this::getNestedClasses)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList()));
-
-        return classes;
     }
 
     private static Tree parseOperatorExpression(JCTree.JCOperatorExpression expression) {
@@ -535,5 +324,145 @@ public class BlaPlugin implements Plugin {
         if (type instanceof Type.MethodType)
             return type.getReturnType().tsym.name;
         return type.tsym.getSimpleName();
+    }
+
+    private static final class MyTaskListener implements TaskListener {
+        private final Context context;
+        private       boolean todosInit;
+        private       int     prevMaxErrors;
+
+        public MyTaskListener(final Context context) {
+            this.context = context;
+            this.todosInit = true;
+            this.prevMaxErrors = -1;
+        }
+
+        @Override
+        public void started(TaskEvent e) {
+            if (e.getKind() != PARSE) return;
+
+            JavaFileObject sourceFile = e.getSourceFile();
+            try {
+                final CharBuffer src = (CharBuffer) sourceFile.getCharContent(false);
+                SourceParser srcParser = new SourceParser(src.toString());
+                if (srcParser.hasOverloadingShallow()) {
+                    final String parsedSrc = srcParser.parseAndReplace();
+                    Utils.updateClientFileObject(CharBuffer.wrap(parsedSrc.toCharArray()), sourceFile);
+                    Utils.updateString(src, CharBuffer.wrap(parsedSrc.toCharArray()));
+                    overloadedSources.add(sourceFile);
+                }
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            log.printRawLines(sourceFile.getName());
+        }
+
+        @Override
+        public void finished(TaskEvent e) {
+            switch (e.getKind()) {
+                case PARSE: {
+                    if (overloadedSources.contains(e.getSourceFile())) {
+                        if (!SourceVerifier.isValid(e.getCompilationUnit())) {
+//                        changedFiles.remove(uri);//TODO
+                        } else {
+                            SourceVerifier.getOverloadedClasses(e.getCompilationUnit()).forEach(clazz -> overloadedClasses.put(clazz.name, clazz));
+                        }
+                    }
+                    break;
+                }
+
+                case ENTER:/*the dragon*/ {
+                    if (todosInit) {
+                        todosInit();
+                    }
+                    ClassVerifier.loadClassFiles(e);
+                    if (!ClassVerifier.hasOverloadedClassesImported(e.getCompilationUnit())) {
+                        return;//TODO add some kind of extra check for same package classes taht don't require an import
+                    }
+
+                    /**
+                     * 1-we need a list of valid overloaded classes
+                     * 2-we then check every class for the imports
+                     *  a-only parse the classes with overridden imports
+                     *  b-create a list of all the imported overridden classes to compare with
+                     *  c-scan every type I guess?
+                     *  d-and replace the binary tree with equivalents operations
+                     *   i-we need to check parameter types and such
+                     *   ii-return types could be important for chained calls
+                     *   iii-TODO would replacing pre-compilation be better performance-wise!?
+                     * 3-a corner case that import scanning wouldn't be able to find is overloaded operations within the defining class, so the imports should just be implied then I guess
+                     */
+                    currentCompilationUnit = e.getCompilationUnit();
+//                        currentCompilationUnit.getImports().stream()
+//                                .map(ImportTree::getQualifiedIdentifier)
+//                                .map(JCTree.JCFieldAccess.class::cast)
+//                                .filter(i -> isOverloadedType(i.name))
+//                                .forEach(i -> nameTypeMap.put(i.name, i.type.tsym.name)); //TODO init list with imports, and figure out how to reach da root elementz
+                    final List<? extends Tree> typeDecls = currentCompilationUnit.getTypeDecls();
+                    typeDecls.forEach(BlaPlugin::parse);
+
+//                //TODO scan imports for overloaded classes
+//                int a = 0;//TODO change the name/path back after compilation?
+                }
+                default:
+                    break;//skip
+            }
+        }
+
+        /**
+         * note that this class temporary disables logging because the {@link Attr#attrib(com.sun.tools.javac.comp.Env)}
+         * method generates compilation errors. these errors are irrelevant since we are only using the method to enrich
+         * our classes with type information and such.
+         */
+        private void todosInit() {
+            try {
+                //temp disable logging
+                disableErrorLogging();
+
+                //enrich our classes with type information and such
+                for (Env<AttrContext> todo : Todo.instance(context)) {
+                    Attr.instance(context).attrib(todo);
+                }
+
+            } catch (NoSuchFieldException | IllegalAccessException ex) {
+                ex.printStackTrace();
+            } finally {
+                //re-enable error logging
+                enableErrorLogging();
+                todosInit = false;
+            }
+        }
+
+        private void disableErrorLogging() throws IllegalAccessException, NoSuchFieldException {
+            Field MaxErrors = null;
+            try {
+                MaxErrors = log.getClass().getDeclaredField("MaxErrors");
+                MaxErrors.setAccessible(true);
+                prevMaxErrors = MaxErrors.getInt(log);
+                MaxErrors.set(log, 0);
+            } finally {
+                if (MaxErrors != null)
+                    MaxErrors.setAccessible(false);
+            }
+        }
+
+        private void enableErrorLogging() {
+            Field MaxErrors = null;
+            if (prevMaxErrors > -1) {
+                try {
+                    try {
+                        MaxErrors = log.getClass().getDeclaredField("MaxErrors");
+                        MaxErrors.setAccessible(true);
+                        MaxErrors.set(log, prevMaxErrors);
+                    } catch (NoSuchFieldException | IllegalAccessException e) {
+                        e.printStackTrace();
+                    }
+                } finally {
+                    if (MaxErrors != null)
+                        MaxErrors.setAccessible(false);
+                    prevMaxErrors = -1;
+                }
+            }
+        }
     }
 }

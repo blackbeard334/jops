@@ -1,16 +1,28 @@
 package com.bla;
 
 import com.bla.annotation.OperatorOverloading;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ImportTree;
+import com.sun.source.util.TaskEvent;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.Name;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 final class ClassVerifier {
+
+    /** just a list of all the classes we already checked. is extra important when we scan .class files */
+    private static Set<Symbol> checkedClasses = new HashSet<>();
+
     private ClassVerifier() {
     }
 
@@ -54,5 +66,68 @@ final class ClassVerifier {
 
     private static Predicate<Symbol.MethodSymbol> hasName(String methodName) {
         return n -> methodName.equals(n.getSimpleName().toString());
+    }
+
+    private static boolean isOverloadedType(Name name) {//TODO rename
+        return BlaPlugin.overloadedClasses.containsKey(name);
+    }
+
+    static boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
+        /*TODO how do we check files in the same package that don't require imports
+            since we can't always rely on imports for stuff in same package:
+            ((Scope.ScopeImpl) ((JCTree.JCPackageDecl) e.getCompilationUnit().getPackage()).packge.members()).table
+         */
+        return hasOverloadedImport(compilationUnit) || hasOverloadedPackageMate(compilationUnit);
+    }
+
+    private static boolean hasOverloadedImport(CompilationUnitTree compilationUnit) {
+        return compilationUnit.getImports().stream()
+                .map(ImportTree::getQualifiedIdentifier)
+                .map(JCTree.JCFieldAccess.class::cast)
+                .map(JCTree.JCFieldAccess::getIdentifier)
+                .anyMatch(ClassVerifier::isOverloadedType);
+    }
+
+    private static boolean hasOverloadedPackageMate(CompilationUnitTree compilationUnit) {
+        for (Symbol symbol : ((JCTree.JCPackageDecl) compilationUnit.getPackage()).packge.members().getSymbols()) {
+            if (ClassVerifier.isOverloadedType(symbol.getSimpleName()))
+                return true;
+        }
+        return false;
+    }
+
+    /** this method checks all class files for possible classes with our overloading annotation */
+    static void loadClassFiles(TaskEvent e) {
+        for (Symbol packge : ((JCTree.JCCompilationUnit) e.getCompilationUnit()).modle.getEnclosedElements()) {
+            for (Symbol clazz : ((Symbol.PackageSymbol) packge).members_field.getSymbols()) {
+                if (checkedClasses.contains(clazz) || isOverloadedType(clazz.getSimpleName())) continue;
+
+                loadNestedClasses(clazz);
+            }
+        }
+    }
+
+    private static void loadNestedClasses(final Symbol classSymbol) {
+        for (Symbol.ClassSymbol clazz : getNestedClasses((Symbol.ClassSymbol) classSymbol)) {
+            if (ClassVerifier.hasOperatorOverloadingAnnotation(clazz)) {
+                //parse and add to some list
+                BlaPlugin.overloadedClasses.put(clazz.getSimpleName(), ClassVerifier.getOverloadedClass(clazz));
+            }
+            checkedClasses.add(clazz);
+        }
+    }
+
+    private static List<Symbol.ClassSymbol> getNestedClasses(final Symbol.ClassSymbol clazz) {
+        List<Symbol.ClassSymbol> classes = new ArrayList<>();
+        classes.add(clazz);
+
+        classes.addAll(clazz.getEnclosedElements().stream()
+                .filter(Symbol.ClassSymbol.class::isInstance)
+                .map(Symbol.ClassSymbol.class::cast)
+                .map(ClassVerifier::getNestedClasses)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList()));
+
+        return classes;
     }
 }

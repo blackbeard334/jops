@@ -88,45 +88,4 @@ final class OverloadedClass {
 
         return null;
     }
-
-    static boolean isLinealMatch(final Type src, final Type dst) {
-        if (dst.tsym == src.tsym) return true;
-
-        if (dst instanceof Type.ClassType) {
-            Type.ClassType classType = (Type.ClassType) dst;
-            return isLinealMatch(src, classType.supertype_field);
-        }
-
-        if (dst instanceof Type.ArrayType) {
-            final Type.ArrayType dstType = (Type.ArrayType) dst;
-            final Type.ArrayType srcType = (Type.ArrayType) src;
-            if (dstType.elemtype instanceof Type.JCPrimitiveType) {//primitive arrays are absolute
-                return srcType.elemtype.tsym == dstType.elemtype.tsym;
-            }
-            return isLinealMatch(srcType.elemtype, dstType.elemtype);
-        }
-
-        if (dst instanceof Type.JCPrimitiveType) {
-            //https://docs.oracle.com/javase/specs/jls/se10/html/jls-5.html#jls-5.1.2
-            switch (dst.getTag()) {
-                case CHAR:
-                    return isLinealMatch(src, BlaPlugin.symtab.intType);
-                case BYTE:
-                    return isLinealMatch(src, BlaPlugin.symtab.shortType);
-                case SHORT:
-                    return isLinealMatch(src, BlaPlugin.symtab.intType);
-                case INT:
-                    return isLinealMatch(src, BlaPlugin.symtab.longType);
-                case LONG:
-                    return isLinealMatch(src, BlaPlugin.symtab.floatType);
-                case FLOAT:
-                    return isLinealMatch(src, BlaPlugin.symtab.doubleType);
-                case DOUBLE:
-                default:
-                    return false;
-            }
-        }
-
-        return false;
-    }
 }

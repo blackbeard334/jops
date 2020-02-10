@@ -1,5 +1,6 @@
 package com.bla;
 
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.Name;
@@ -13,7 +14,7 @@ final class Utils {
     private Utils() {
     }
 
-    static Name getPrimitiveType(JCTree.JCPrimitiveTypeTree type) {
+    private static Name getPrimitiveTypeName(JCTree.JCPrimitiveTypeTree type) {
         switch (type.typetag) {
             case BYTE:
                 return BlaPlugin.symtab.byteType.tsym.name;
@@ -40,11 +41,11 @@ final class Utils {
         if (type instanceof JCTree.JCIdent)
             return ((JCTree.JCIdent) type).name;
         else {
-            return getPrimitiveType((JCTree.JCPrimitiveTypeTree) type);
+            return getPrimitiveTypeName((JCTree.JCPrimitiveTypeTree) type);
         }
     }
 
-    static boolean updateClientFileObject(CharBuffer dst, final CharBuffer src, JavaFileObject sourceFile) {
+    static boolean updateClientFileObject(final CharBuffer src, JavaFileObject sourceFile) {
         Field fileManagerField = null;
         try {
             fileManagerField = sourceFile.getClass().getSuperclass().getDeclaredField("fileManager");
@@ -52,13 +53,9 @@ final class Utils {
             JavacFileManager fileManagerObject = (JavacFileManager) fileManagerField.get(sourceFile);
             fileManagerObject.cache(sourceFile, src);
 
-            /*
-             The source is alraedy read at com.sun.tools.javac.main.JavaCompiler.parse(javax.tools.JavaFileObject)
-             So we need to change it here
-             */
-            return updateString(dst, src);
+            return true;
         } catch (NoSuchFieldException | IllegalAccessException ex) {
-            ex.printStackTrace();
+            ex.printStackTrace();//TODO error handling in case we fail
             return false;
         } finally {
             if (fileManagerField != null)
@@ -66,8 +63,13 @@ final class Utils {
         }
     }
 
-    private static boolean updateString(CharBuffer dst, final CharBuffer src) throws NoSuchFieldException, IllegalAccessException {
-        Field hbField = null, offsetField = null, readOnlyField = null, markField = null, positionField = null, limitField = null, capacityField = null, addessField = null;
+    /**
+     * The source is alraedy read at com.sun.tools.javac.main.JavaCompiler.parse(javax.tools.JavaFileObject)
+     * So we need to overwrite it here T_T
+     */
+    static boolean updateString(CharBuffer dst, final CharBuffer src) {
+        Field hbField = null, offsetField = null, readOnlyField = null;
+        Field markField = null, positionField = null, limitField = null, capacityField = null, addessField = null;
         try {
             hbField = CharBuffer.class.getDeclaredField("hb");
             hbField.setAccessible(true);
@@ -103,6 +105,9 @@ final class Utils {
                 addessField.set(dst, addessField.get(src));
             }
             return true;
+        } catch (NoSuchFieldException | IllegalAccessException ex) {
+            ex.printStackTrace();//TODO error handling in case we fail
+            return false;
         } finally {
             if (hbField != null)
                 hbField.setAccessible(false);
@@ -123,5 +128,46 @@ final class Utils {
                     addessField.setAccessible(false);
             }
         }
+    }
+
+    static boolean isLinealMatch(final Type src, final Type dst) {
+        if (dst.tsym == src.tsym) return true;
+
+        if (dst instanceof Type.ClassType) {
+            Type.ClassType classType = (Type.ClassType) dst;
+            return isLinealMatch(src, classType.supertype_field);
+        }
+
+        if (dst instanceof Type.ArrayType) {
+            final Type.ArrayType dstType = (Type.ArrayType) dst;
+            final Type.ArrayType srcType = (Type.ArrayType) src;
+            if (dstType.elemtype instanceof Type.JCPrimitiveType) {//primitive arrays are absolute
+                return srcType.elemtype.tsym == dstType.elemtype.tsym;
+            }
+            return isLinealMatch(srcType.elemtype, dstType.elemtype);
+        }
+
+        if (dst instanceof Type.JCPrimitiveType) {
+            //https://docs.oracle.com/javase/specs/jls/se10/html/jls-5.html#jls-5.1.2
+            switch (dst.getTag()) {
+                case CHAR:
+                    return isLinealMatch(src, BlaPlugin.symtab.intType);
+                case BYTE:
+                    return isLinealMatch(src, BlaPlugin.symtab.shortType);
+                case SHORT:
+                    return isLinealMatch(src, BlaPlugin.symtab.intType);
+                case INT:
+                    return isLinealMatch(src, BlaPlugin.symtab.longType);
+                case LONG:
+                    return isLinealMatch(src, BlaPlugin.symtab.floatType);
+                case FLOAT:
+                    return isLinealMatch(src, BlaPlugin.symtab.doubleType);
+                case DOUBLE:
+                default:
+                    return false;
+            }
+        }
+
+        return false;
     }
 }
