@@ -2,7 +2,7 @@ package neo.idlib.math;
 
 //import neo.idlib.Text.Str.idStr;
 
-import com.bla.annotation.OperatorOverloading;
+import com.jops.annotation.OperatorOverloading;
 import neo.idlib.math.Angles.idAngles;
 import neo.idlib.math.Math_h.idMath;
 import neo.idlib.math.Matrix.idMat3;

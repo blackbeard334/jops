@@ -1,4 +1,4 @@
-package com.bla;
+package com.jops;
 
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
@@ -19,11 +19,11 @@ final class OverloadedClass {
     Map<Name, MethodInformation> mul_asg;
     Map<Name, MethodInformation> div_asg;//TODO generalize this
 
-    public OverloadedClass(final Name name) {
+     OverloadedClass(final Name name) {
         this.name = name;
     }
 
-    public Name getName() {
+     Name getName() {
         return name;
     }
 

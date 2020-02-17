@@ -1,6 +1,6 @@
 package neo.idlib.math;
 
-import com.bla.annotation.OperatorOverloading;
+import com.jops.annotation.OperatorOverloading;
 import neo.idlib.Text.Str.idStr;
 import neo.idlib.math.Angles.idAngles;
 import neo.idlib.math.Math_h.idMath;

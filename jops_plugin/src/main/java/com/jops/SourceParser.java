@@ -1,6 +1,6 @@
-package com.bla;
+package com.jops;
 
-import com.bla.annotation.OperatorOverloading;
+import com.jops.annotation.OperatorOverloading;
 
 /**
  * check for annotation
@@ -16,7 +16,7 @@ import com.bla.annotation.OperatorOverloading;
  * *return type present
  * *find a way to rename compilation errors back to their operator+ variants instead of oPlus
  */
-public class SourceParser {
+final class SourceParser {
     private static final String  OVERLOADING_IMPORT     = OperatorOverloading.class.getName();
     private static final String  OVERLOADING_ANNOTATION = OperatorOverloading.ANNOTATION;
     private static final boolean DEBUG                  = false;
@@ -30,7 +30,7 @@ public class SourceParser {
     private final String noCommentsOrStrings;
     private final String noCommentsOrStringsOrWhiteSpace;
 
-    public SourceParser(final String sourceFile) {
+    SourceParser(final String sourceFile) {
         this.sourceFile = sourceFile;
         noComments = stripComments(sourceFile);
         noCommentsOrStrings = stripStringLiterals(noComments);
@@ -38,7 +38,7 @@ public class SourceParser {
     }
 
     /** seek & destroy */
-    public String parseAndReplace() {
+    String parseAndReplace() {
         String temp = noCommentsOrStrings;
         if (hasOverloadingShallow()) {
 //            lines = sourceFile.split("\n");
@@ -62,7 +62,7 @@ public class SourceParser {
         return temp;
     }
 
-    public boolean hasOverloadingShallow() {
+    boolean hasOverloadingShallow() {
         // remove break lines from source
         return noCommentsOrStringsOrWhiteSpace.contains(OVERLOADING_IMPORT) && noCommentsOrStringsOrWhiteSpace.contains(OVERLOADING_ANNOTATION);
     }

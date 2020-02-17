@@ -1,4 +1,4 @@
-package com.bla.annotation;
+package com.jops.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;

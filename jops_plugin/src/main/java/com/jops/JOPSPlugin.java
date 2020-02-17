@@ -1,4 +1,4 @@
-package com.bla;
+package com.jops;
 
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
@@ -12,9 +12,27 @@ import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.comp.*;
+import com.sun.tools.javac.comp.Attr;
+import com.sun.tools.javac.comp.AttrContext;
+import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.comp.Operators;
+import com.sun.tools.javac.comp.Todo;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.*;
+import com.sun.tools.javac.tree.JCTree.JCAssign;
+import com.sun.tools.javac.tree.JCTree.JCAssignOp;
+import com.sun.tools.javac.tree.JCTree.JCBinary;
+import com.sun.tools.javac.tree.JCTree.JCBlock;
+import com.sun.tools.javac.tree.JCTree.JCClassDecl;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.JCTree.JCExpressionStatement;
+import com.sun.tools.javac.tree.JCTree.JCForLoop;
+import com.sun.tools.javac.tree.JCTree.JCIf;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
+import com.sun.tools.javac.tree.JCTree.JCParens;
+import com.sun.tools.javac.tree.JCTree.JCReturn;
+import com.sun.tools.javac.tree.JCTree.JCStatement;
+import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
@@ -24,10 +42,13 @@ import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.CharBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
-import static com.sun.tools.javac.tree.JCTree.*;
 
 /**
  * @version 0.79
@@ -35,27 +56,19 @@ import static com.sun.tools.javac.tree.JCTree.*;
 public final class JOPSPlugin implements Plugin {
     public static final String NAME = "JOPSPlugin";
 
-    /**
-     * here we store the files that were changed BEFORE the PARSE stage
-     */
-    private static List<JavaFileObject> overloadedSources = new ArrayList<>();
-    /**
-     * a map of all the classes with operator overloading. the value contains all the overloaded methods for said class
-     */
-    static Map<Name, OverloadedClass> overloadedClasses = new HashMap<>();
+    /** here we store the files that were changed BEFORE the PARSE stage */
+    private static List<JavaFileObject>       overloadedSources = new ArrayList<>();
+    /** a map of all the classes with operator overloading. the value contains all the overloaded methods for said class */
+    static         Map<Name, OverloadedClass> overloadedClasses = new HashMap<>();
 
     // consider this the autowire section.
-    /**
-     * the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE
-     */
-    static Symtab symtab;
+    /** the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
+    static         Symtab    symtab;
     private static Operators operators;
 
-    /**
-     * we need this for logging
-     */
-    private static Log log;
-    private static JavacTrees javacTrees;
+    /** we need this for logging */
+    private static Log                 log;
+    private static JavacTrees          javacTrees;
     private static CompilationUnitTree currentCompilationUnit;
 
     @Override
@@ -273,9 +286,7 @@ public final class JOPSPlugin implements Plugin {
         return expression;
     }
 
-    /**
-     * this method outputs the message at the correct location in the file being compiled
-     */
+    /** this method outputs the message at the correct location in the file being compiled */
     private static void printErrorMessageAtSourceLocation(final Diagnostic.Kind kind, final JCTree.JCOperatorExpression expression, final String message) {
         javacTrees.printMessage(kind, message, expression, currentCompilationUnit);
     }
@@ -319,10 +330,10 @@ public final class JOPSPlugin implements Plugin {
 
     private static final class MyTaskListener implements TaskListener {
         private final Context context;
-        private boolean todosInit;
-        private int prevMaxErrors;
+        private       boolean todosInit;
+        private       int     prevMaxErrors;
 
-        public MyTaskListener(final Context context) {
+        MyTaskListener(final Context context) {
             this.context = context;
             this.todosInit = true;
             this.prevMaxErrors = -1;
