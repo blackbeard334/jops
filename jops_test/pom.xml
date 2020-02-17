@@ -16,7 +16,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>untitled</groupId>
+            <groupId>jops</groupId>
             <artifactId>jops_plugin</artifactId>
             <version>${jops_plugin.version}</version>
         </dependency>
@@ -46,7 +46,7 @@
                 </configuration>
                 <dependencies>
                     <dependency>
-                        <groupId>untitled</groupId>
+                        <groupId>jops</groupId>
                         <artifactId>jops_plugin</artifactId>
                         <version>${jops_plugin.version}</version>
                     </dependency>
