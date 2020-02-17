@@ -41,7 +41,7 @@
                     <compilerArgs>
                         <!--<arg>-classpath</arg>--> <!--doing classpath like this seems to override the existing classpath somehow -->
                         <!--<arg>/Temp/jops/jops_plugin/target/classes</arg>-->
-                        <arg>-Xplugin:BlaPlugin</arg>
+                        <arg>-Xplugin:JOPSPlugin</arg>
                     </compilerArgs>
                 </configuration>
                 <dependencies>

@@ -57,7 +57,7 @@ final class OverloadedClass {
 //                Type.ClassType classType = (Type.ClassType) type;
 //                Name paramType = classType.tsym.name;
 //                while (getMethod(opcode, paramType) == null) {
-//                    if (classType.supertype_field == BlaPlugin.symtab.objectType) {
+//                    if (classType.supertype_field == JOPSPlugin.symtab.objectType) {
 //                        return null;
 //                    }
 //                    paramType = classType.tsym.name;
@@ -69,17 +69,17 @@ final class OverloadedClass {
             //https://docs.oracle.com/javase/specs/jls/se10/html/jls-5.html#jls-5.1.2
             switch (type.getTag()) {
                 case CHAR:
-                    return getMethodPolyEdition(opcode, BlaPlugin.symtab.intType);
+                    return getMethodPolyEdition(opcode, JOPSPlugin.symtab.intType);
                 case BYTE:
-                    return getMethodPolyEdition(opcode, BlaPlugin.symtab.shortType);
+                    return getMethodPolyEdition(opcode, JOPSPlugin.symtab.shortType);
                 case SHORT:
-                    return getMethodPolyEdition(opcode, BlaPlugin.symtab.intType);
+                    return getMethodPolyEdition(opcode, JOPSPlugin.symtab.intType);
                 case INT:
-                    return getMethodPolyEdition(opcode, BlaPlugin.symtab.longType);
+                    return getMethodPolyEdition(opcode, JOPSPlugin.symtab.longType);
                 case LONG:
-                    return getMethodPolyEdition(opcode, BlaPlugin.symtab.floatType);
+                    return getMethodPolyEdition(opcode, JOPSPlugin.symtab.floatType);
                 case FLOAT:
-                    return getMethodPolyEdition(opcode, BlaPlugin.symtab.doubleType);
+                    return getMethodPolyEdition(opcode, JOPSPlugin.symtab.doubleType);
                 case DOUBLE:
                 default:
                     return null;

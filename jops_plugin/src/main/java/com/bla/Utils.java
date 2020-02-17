@@ -17,21 +17,21 @@ final class Utils {
     private static Name getPrimitiveTypeName(JCTree.JCPrimitiveTypeTree type) {
         switch (type.typetag) {
             case BYTE:
-                return BlaPlugin.symtab.byteType.tsym.name;
+                return JOPSPlugin.symtab.byteType.tsym.name;
             case CHAR:
-                return BlaPlugin.symtab.charType.tsym.name;
+                return JOPSPlugin.symtab.charType.tsym.name;
             case SHORT:
-                return BlaPlugin.symtab.shortType.tsym.name;
+                return JOPSPlugin.symtab.shortType.tsym.name;
             case INT:
-                return BlaPlugin.symtab.intType.tsym.name;
+                return JOPSPlugin.symtab.intType.tsym.name;
             case LONG:
-                return BlaPlugin.symtab.longType.tsym.name;
+                return JOPSPlugin.symtab.longType.tsym.name;
             case FLOAT:
-                return BlaPlugin.symtab.floatType.tsym.name;
+                return JOPSPlugin.symtab.floatType.tsym.name;
             case DOUBLE:
-                return BlaPlugin.symtab.doubleType.tsym.name;
+                return JOPSPlugin.symtab.doubleType.tsym.name;
             case BOOLEAN:
-                return BlaPlugin.symtab.booleanType.tsym.name;
+                return JOPSPlugin.symtab.booleanType.tsym.name;
             default:
                 return null;
         }
@@ -151,17 +151,17 @@ final class Utils {
             //https://docs.oracle.com/javase/specs/jls/se10/html/jls-5.html#jls-5.1.2
             switch (dst.getTag()) {
                 case CHAR:
-                    return isLinealMatch(src, BlaPlugin.symtab.intType);
+                    return isLinealMatch(src, JOPSPlugin.symtab.intType);
                 case BYTE:
-                    return isLinealMatch(src, BlaPlugin.symtab.shortType);
+                    return isLinealMatch(src, JOPSPlugin.symtab.shortType);
                 case SHORT:
-                    return isLinealMatch(src, BlaPlugin.symtab.intType);
+                    return isLinealMatch(src, JOPSPlugin.symtab.intType);
                 case INT:
-                    return isLinealMatch(src, BlaPlugin.symtab.longType);
+                    return isLinealMatch(src, JOPSPlugin.symtab.longType);
                 case LONG:
-                    return isLinealMatch(src, BlaPlugin.symtab.floatType);
+                    return isLinealMatch(src, JOPSPlugin.symtab.floatType);
                 case FLOAT:
-                    return isLinealMatch(src, BlaPlugin.symtab.doubleType);
+                    return isLinealMatch(src, JOPSPlugin.symtab.doubleType);
                 case DOUBLE:
                 default:
                     return false;

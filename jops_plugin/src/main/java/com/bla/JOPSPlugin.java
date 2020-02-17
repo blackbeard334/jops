@@ -12,15 +12,9 @@ import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.comp.Attr;
-import com.sun.tools.javac.comp.AttrContext;
-import com.sun.tools.javac.comp.Env;
-import com.sun.tools.javac.comp.Operators;
-import com.sun.tools.javac.comp.Todo;
+import com.sun.tools.javac.comp.*;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCAssignOp;
-import com.sun.tools.javac.tree.JCTree.JCBinary;
-import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
+import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
@@ -30,43 +24,38 @@ import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.CharBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.sun.source.util.TaskEvent.Kind.PARSE;
-import static com.sun.tools.javac.tree.JCTree.JCAssign;
-import static com.sun.tools.javac.tree.JCTree.JCBlock;
-import static com.sun.tools.javac.tree.JCTree.JCClassDecl;
-import static com.sun.tools.javac.tree.JCTree.JCExpression;
-import static com.sun.tools.javac.tree.JCTree.JCExpressionStatement;
-import static com.sun.tools.javac.tree.JCTree.JCForLoop;
-import static com.sun.tools.javac.tree.JCTree.JCIf;
-import static com.sun.tools.javac.tree.JCTree.JCMethodDecl;
-import static com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
-import static com.sun.tools.javac.tree.JCTree.JCParens;
-import static com.sun.tools.javac.tree.JCTree.JCReturn;
-import static com.sun.tools.javac.tree.JCTree.JCStatement;
+import static com.sun.tools.javac.tree.JCTree.*;
 
-/** @version 0.79 */
-public final class BlaPlugin implements Plugin {
-    public static final String NAME = "BlaPlugin";
+/**
+ * @version 0.79
+ */
+public final class JOPSPlugin implements Plugin {
+    public static final String NAME = "JOPSPlugin";
 
-    /** here we store the files that were changed BEFORE the PARSE stage */
-    private static List<JavaFileObject>       overloadedSources = new ArrayList<>();
-    /** a map of all the classes with operator overloading. the value contains all the overloaded methods for said class */
-    static         Map<Name, OverloadedClass> overloadedClasses = new HashMap<>();
+    /**
+     * here we store the files that were changed BEFORE the PARSE stage
+     */
+    private static List<JavaFileObject> overloadedSources = new ArrayList<>();
+    /**
+     * a map of all the classes with operator overloading. the value contains all the overloaded methods for said class
+     */
+    static Map<Name, OverloadedClass> overloadedClasses = new HashMap<>();
 
     // consider this the autowire section.
-    /** the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE */
-    static         Symtab    symtab;
+    /**
+     * the symtab has a lot of useful info, but in this particular case we need it for the primitiveType names, which are often not known yet during PARSE
+     */
+    static Symtab symtab;
     private static Operators operators;
 
-    /** we need this for logging */
-    private static Log                 log;
-    private static JavacTrees          javacTrees;
+    /**
+     * we need this for logging
+     */
+    private static Log log;
+    private static JavacTrees javacTrees;
     private static CompilationUnitTree currentCompilationUnit;
 
     @Override
@@ -93,7 +82,7 @@ public final class BlaPlugin implements Plugin {
         switch (tree.getClass().getSimpleName()) {
             case "JCClassDecl":
                 JCClassDecl classDecl = (JCClassDecl) tree;
-                classDecl.defs.forEach(BlaPlugin::parse);
+                classDecl.defs.forEach(JOPSPlugin::parse);
                 break;
             case "JCVariableDecl":
                 JCVariableDecl variableDecl = (JCVariableDecl) tree;
@@ -110,12 +99,12 @@ public final class BlaPlugin implements Plugin {
                 return parseOperatorExpression(binary);
             case "JCBlock":
                 JCBlock block = (JCBlock) tree;
-                block.stats.forEach(BlaPlugin::parse);
+                block.stats.forEach(JOPSPlugin::parse);
                 break;
             case "JCMethodInvocation": //method params can be (a + b)
                 JCMethodInvocation methodInvocation = (JCMethodInvocation) tree;
                 methodInvocation.args = methodInvocation.args.stream()
-                        .map(BlaPlugin::parse)
+                        .map(JOPSPlugin::parse)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
                 methodInvocation.meth = (JCExpression) parse(methodInvocation.meth);
@@ -182,12 +171,12 @@ public final class BlaPlugin implements Plugin {
             case "JCForLoop":
                 JCForLoop forLoop = (JCForLoop) tree;
                 forLoop.init = forLoop.init.stream()
-                        .map(BlaPlugin::parse)
+                        .map(JOPSPlugin::parse)
                         .map(JCStatement.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
                 forLoop.cond = (JCExpression) parse(forLoop.cond);
                 forLoop.step = forLoop.step.stream()
-                        .map(BlaPlugin::parse)
+                        .map(JOPSPlugin::parse)
                         .map(JCExpressionStatement.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
                 forLoop.body = (JCStatement) parse(forLoop.body);
@@ -221,7 +210,7 @@ public final class BlaPlugin implements Plugin {
             case "JCNewClass":
                 JCTree.JCNewClass jcNewClass = (JCTree.JCNewClass) tree;
                 jcNewClass.args = jcNewClass.args.stream()
-                        .map(BlaPlugin::parse)
+                        .map(JOPSPlugin::parse)
                         .map(JCExpression.class::cast)
                         .collect(com.sun.tools.javac.util.List.collector());
                 if (jcNewClass.constructorType.tsym.kind == Kinds.Kind.ERR) {
@@ -284,7 +273,9 @@ public final class BlaPlugin implements Plugin {
         return expression;
     }
 
-    /** this method outputs the message at the correct location in the file being compiled */
+    /**
+     * this method outputs the message at the correct location in the file being compiled
+     */
     private static void printErrorMessageAtSourceLocation(final Diagnostic.Kind kind, final JCTree.JCOperatorExpression expression, final String message) {
         javacTrees.printMessage(kind, message, expression, currentCompilationUnit);
     }
@@ -304,20 +295,20 @@ public final class BlaPlugin implements Plugin {
     private static void setPrimitiveOperationType(final Type.JCPrimitiveType left, final Type.JCPrimitiveType right, JCTree.JCOperatorExpression expression) {
         final List<Type> types = Arrays.asList(left, right);
         // the order of this list is also based on the jls-5.1.2 section //TODO does the order of this list change per operation?
-        if (types.contains(BlaPlugin.symtab.doubleType))
-            expression.type = BlaPlugin.symtab.doubleType;
-        else if (types.contains(BlaPlugin.symtab.floatType))
-            expression.type = BlaPlugin.symtab.floatType;
-        else if (types.contains(BlaPlugin.symtab.longType))
-            expression.type = BlaPlugin.symtab.longType;
-        else if (types.contains(BlaPlugin.symtab.intType))
-            expression.type = BlaPlugin.symtab.intType;
-        else if (types.contains(BlaPlugin.symtab.shortType))
-            expression.type = BlaPlugin.symtab.shortType;
-        else if (types.contains(BlaPlugin.symtab.charType))
-            expression.type = BlaPlugin.symtab.charType;
-        else if (types.contains(BlaPlugin.symtab.byteType))
-            expression.type = BlaPlugin.symtab.byteType;
+        if (types.contains(JOPSPlugin.symtab.doubleType))
+            expression.type = JOPSPlugin.symtab.doubleType;
+        else if (types.contains(JOPSPlugin.symtab.floatType))
+            expression.type = JOPSPlugin.symtab.floatType;
+        else if (types.contains(JOPSPlugin.symtab.longType))
+            expression.type = JOPSPlugin.symtab.longType;
+        else if (types.contains(JOPSPlugin.symtab.intType))
+            expression.type = JOPSPlugin.symtab.intType;
+        else if (types.contains(JOPSPlugin.symtab.shortType))
+            expression.type = JOPSPlugin.symtab.shortType;
+        else if (types.contains(JOPSPlugin.symtab.charType))
+            expression.type = JOPSPlugin.symtab.charType;
+        else if (types.contains(JOPSPlugin.symtab.byteType))
+            expression.type = JOPSPlugin.symtab.byteType;
     }
 
     private static Name getReturnTypeName(Type type) {
@@ -328,8 +319,8 @@ public final class BlaPlugin implements Plugin {
 
     private static final class MyTaskListener implements TaskListener {
         private final Context context;
-        private       boolean todosInit;
-        private       int     prevMaxErrors;
+        private boolean todosInit;
+        private int prevMaxErrors;
 
         public MyTaskListener(final Context context) {
             this.context = context;
@@ -399,7 +390,7 @@ public final class BlaPlugin implements Plugin {
 //                                .filter(i -> isOverloadedType(i.name))
 //                                .forEach(i -> nameTypeMap.put(i.name, i.type.tsym.name)); //TODO init list with imports, and figure out how to reach da root elementz
                     final List<? extends Tree> typeDecls = currentCompilationUnit.getTypeDecls();
-                    typeDecls.forEach(BlaPlugin::parse);
+                    typeDecls.forEach(JOPSPlugin::parse);
 
 //                //TODO scan imports for overloaded classes
 //                int a = 0;//TODO change the name/path back after compilation?
@@ -440,6 +431,9 @@ public final class BlaPlugin implements Plugin {
                 MaxErrors.setAccessible(true);
                 prevMaxErrors = MaxErrors.getInt(log);
                 MaxErrors.set(log, 0);
+                log.printRawLines("---------------------W-A-R-N-I-N-G-----------------------");
+                log.printRawLines(">>>>>>>>>> Error log 'temporarily' disabled... <<<<<<<<<<");
+                log.printRawLines("---------------------------------------------------------");
             } finally {
                 if (MaxErrors != null)
                     MaxErrors.setAccessible(false);
@@ -450,13 +444,14 @@ public final class BlaPlugin implements Plugin {
             Field MaxErrors = null;
             if (prevMaxErrors > -1) {
                 try {
-                    try {
-                        MaxErrors = log.getClass().getDeclaredField("MaxErrors");
-                        MaxErrors.setAccessible(true);
-                        MaxErrors.set(log, prevMaxErrors);
-                    } catch (NoSuchFieldException | IllegalAccessException e) {
-                        e.printStackTrace();
-                    }
+                    MaxErrors = log.getClass().getDeclaredField("MaxErrors");
+                    MaxErrors.setAccessible(true);
+                    MaxErrors.set(log, prevMaxErrors);
+                    log.printRawLines("---------------------------------------------");
+                    log.printRawLines("<<<<<<<<<< Error log re-enabled... >>>>>>>>>>");
+                    log.printRawLines("---------------------------------------------");
+                } catch (NoSuchFieldException | IllegalAccessException e) {
+                    e.printStackTrace();
                 } finally {
                     if (MaxErrors != null)
                         MaxErrors.setAccessible(false);

@@ -69,7 +69,7 @@ final class ClassVerifier {
     }
 
     private static boolean isOverloadedType(Name name) {//TODO rename
-        return BlaPlugin.overloadedClasses.containsKey(name);
+        return JOPSPlugin.overloadedClasses.containsKey(name);
     }
 
     static boolean hasOverloadedClassesImported(final CompilationUnitTree compilationUnit) {
@@ -111,7 +111,7 @@ final class ClassVerifier {
         for (Symbol.ClassSymbol clazz : getNestedClasses((Symbol.ClassSymbol) classSymbol)) {
             if (ClassVerifier.hasOperatorOverloadingAnnotation(clazz)) {
                 //parse and add to some list
-                BlaPlugin.overloadedClasses.put(clazz.getSimpleName(), ClassVerifier.getOverloadedClass(clazz));
+                JOPSPlugin.overloadedClasses.put(clazz.getSimpleName(), ClassVerifier.getOverloadedClass(clazz));
             }
             checkedClasses.add(clazz);
         }
