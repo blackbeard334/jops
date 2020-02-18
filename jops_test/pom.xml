@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>jops</groupId>
+    <groupId>com.jops</groupId>
     <artifactId>jops_test</artifactId>
     <version>0.0.2-SNAPSHOT</version>
 
@@ -16,7 +16,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>jops</groupId>
+            <groupId>com.jops</groupId>
             <artifactId>jops_plugin</artifactId>
             <version>${jops_plugin.version}</version>
         </dependency>
@@ -46,7 +46,7 @@
                 </configuration>
                 <dependencies>
                     <dependency>
-                        <groupId>jops</groupId>
+                        <groupId>com.jops</groupId>
                         <artifactId>jops_plugin</artifactId>
                         <version>${jops_plugin.version}</version>
                     </dependency>

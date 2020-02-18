@@ -2,6 +2,10 @@ package com.jops;
 
 import com.jops.annotation.OperatorOverloading;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 /**
  * check for annotation
  * tokenize by space?
@@ -15,20 +19,20 @@ import com.jops.annotation.OperatorOverloading;
  * *ONE PARAM
  * *return type present
  * *find a way to rename compilation errors back to their operator+ variants instead of oPlus
+ *
+ * @version 3.7
  */
 final class SourceParser {
     private static final String  OVERLOADING_IMPORT     = OperatorOverloading.class.getName();
     private static final String  OVERLOADING_ANNOTATION = OperatorOverloading.ANNOTATION;
     private static final boolean DEBUG                  = false;
 
-    private boolean inCommentBlock = false;
-    private int     currentLine    = 0;
-    private long    charsThusFar   = 0;
-
     private final String sourceFile;
     private final String noComments;
     private final String noCommentsOrStrings;
     private final String noCommentsOrStringsOrWhiteSpace;
+
+    private final Map<String, String> blaMap = new HashMap<>();
 
     SourceParser(final String sourceFile) {
         this.sourceFile = sourceFile;
@@ -45,6 +49,7 @@ final class SourceParser {
             for (OPS operator : OPS.values()) {
                 temp = operator.otor(temp);//TODO check operator locations after the comments/strings have been stripped, and then replace them in the original
             }
+            temp = restoreStringLiterals(temp);
             /**
              * we can just check the rest of the lines in the same way for:
              * * import
@@ -86,7 +91,6 @@ final class SourceParser {
             } else {//TODO broken comment with no closing tag
                 len = bla.length() - leftComment;
                 bla = strcat(bla, fill(len), leftComment, len);
-                inCommentBlock = true;
                 break;
             }
         }
@@ -96,21 +100,33 @@ final class SourceParser {
     }
 
     private String stripStringLiterals(final String source) {//TODO empty strings throw a null pointer
-        String bla = source.replace("\\\"", "\t");//remove escaped quotes
+        StringBuilder bla = new StringBuilder(source.replace("\\\"", "\t"));//remove escaped quotes
         int leftQuotes, rightQuotes = -1;
 
-        while ((leftQuotes = bla.indexOf('"', rightQuotes + 1)) != -1) {
-            rightQuotes = bla.indexOf('"', leftQuotes + 1);
+        while ((leftQuotes = bla.indexOf("\"", rightQuotes + 1)) != -1) {
+            rightQuotes = bla.indexOf("\"", leftQuotes + 1);
             if (rightQuotes != -1) {
-                final int len = rightQuotes - leftQuotes - 1;
-                bla = strcat(bla, fill(len), leftQuotes + 1, len);
+                final String uuid = UUID.randomUUID().toString();
+                final String str = bla.substring(leftQuotes + 1, rightQuotes);
+                blaMap.put(uuid, str);
+                bla.delete(leftQuotes + 1, rightQuotes);
+                bla.insert(leftQuotes + 1, uuid);
+
+                rightQuotes = leftQuotes + 1 + uuid.length() + 1;
             }
         }
 
-        return bla;
+        return bla.toString();
     }
 
-    private String fill(final int len) {
+    private String restoreStringLiterals(String temp) {
+        for (Map.Entry<String, String> entry : blaMap.entrySet()) {
+            temp = temp.replace(entry.getKey(), entry.getValue());
+        }
+        return temp;
+    }
+
+    private static String fill(final int len) {
         if (len == 0) return "";//format %1$0s breaks
 
         String paddedString = String.format("%1$" + len + "s", "");
@@ -118,7 +134,7 @@ final class SourceParser {
         return paddedString;
     }
 
-    private String strcat(final String src, final String str, final int position, final int len) {
+    private static String strcat(final String src, final String str, final int position, final int len) {
         StringBuilder temp = new StringBuilder(src);
         temp.replace(position, position + len, str);
         return temp.toString();

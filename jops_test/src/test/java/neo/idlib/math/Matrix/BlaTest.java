@@ -127,6 +127,12 @@ public class BlaTest {
         assertEquals(14, c.x, 0);
     }
 
+    @Test
+    public void bla_toString_restoringStringLiterals() {
+        Vector.idVec3 a = new Vector.idVec3(1, 2, 3);
+        assertEquals("1.0, 2.0, 3.0", a.toString());
+    }
+
 //    //this test should throw a compilation error that *= isn't overloaded
 //    @Test
 //    public void blaCompilationException() {
