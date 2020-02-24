@@ -47,7 +47,7 @@ public class BlaTest {
 ```xml       
 <dependencies>
     <dependency>
-        <groupId>com.jops</groupId>
+        <groupId>io.github.blackbeard334</groupId>
         <artifactId>jops_plugin</artifactId>
         <version>${jops_plugin.version}</version>
     </dependency> 
@@ -70,7 +70,7 @@ public class BlaTest {
             </configuration>
             <dependencies>
                 <dependency>
-                    <groupId>com.jops</groupId>
+                    <groupId>io.github.blackbeard334</groupId>
                     <artifactId>jops_plugin</artifactId>
                     <version>${jops_plugin.version}</version>
                 </dependency>
