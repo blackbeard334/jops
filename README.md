@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/blackbeard334/jops-proto.svg?token=bpmypf3quXHRf7DniJui&branch=master)](https://travis-ci.com/blackbeard334/jops-proto)
+[![Build Status](https://travis-ci.com/blackbeard334/jops.svg?token=bpmypf3quXHRf7DniJui&branch=master)](https://travis-ci.com/blackbeard334/jops)
 
 # JOPS
 **J**ava **O**perator Overloading **P**lugin
@@ -9,7 +9,7 @@ I know I know, it should be called JOOP instead, but I like JOPS better. Oh yeah
 
 
 ## How to use
-- add [@OperatorOverloading](https://github.com/blackbeard334/jops-proto/blob/master/jops_plugin/src/main/java/com/jops/annotation/OperatorOverloading.java) annotation to the class with overloaded operators
+- add [@OperatorOverloading](https://github.com/blackbeard334/jops/blob/master/jops_plugin/src/main/java/com/jops/annotation/OperatorOverloading.java) annotation to the class with overloaded operators
 - overload the operators with the following C++ syntax:
 ```java
 @OperatorOverloading
