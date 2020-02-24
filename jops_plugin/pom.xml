@@ -7,6 +7,31 @@
     <groupId>com.jops</groupId>
     <artifactId>jops_plugin</artifactId>
     <version>0.0.2-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <!-- META -->
+    <name>jops-plugin</name>
+    <description>A Java compiler plugin that enables basic Operator Overloading.</description>
+    <url>https://github.com/blackbeard334/jops</url>
+
+    <licenses>
+        <license>
+            <name>GNU General Public License</name>
+            <url>https://www.gnu.org/licenses/gpl-3.0.txt</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <name>blackbeard334</name>
+            <email>blackbeard334@protonmail.com</email>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:git://github.com/blackbeard334/jops.git</connection>
+        <developerConnection>scm:git:ssh://github.com/blackbeard334/jops.git</developerConnection>
+        <url>http://github.com/blackbeard334/jops/tree/master</url>
+    </scm>
+    <!--END OF META-->
 
     <dependencies>
         <dependency>
@@ -15,7 +40,6 @@
             <version>3.8.1</version>
         </dependency>
     </dependencies>
-
 
     <build>
         <plugins>
